@@ -6,10 +6,14 @@ var mysql = require("mysql");
 
 var connection = mysql.createConnection(process.env.DATABASE_URL);
 
-// CREATE TABLE `Example` (
+// CREATE TABLE `Entry` (
 // 	`id` varchar(191) NOT NULL,
 // 	`createdAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
-// 	`updatedAt` datetime(3) NOT NULL,
+// 	`updatedAt` datetime(3) NOT NULL DEFAULT current_timestamp(3),
+// 	`userID` varchar(191) NOT NULL,
+// 	`guild` enum('SIK', 'KIK') NOT NULL DEFAULT 'SIK',
+// 	`sport` enum('Running', 'Walking', 'Biking') NOT NULL DEFAULT 'Running',
+// 	`distance` double NOT NULL DEFAULT '0',
 // 	PRIMARY KEY (`id`)
 // ) ENGINE InnoDB,
 //   CHARSET utf8mb4,
@@ -21,31 +25,25 @@ let activeLogs = [];
 
 async function askSport(ctx) {
   ctx.reply({
-    text: "choose sport",
+    text: "Choose sport",
     reply_markup: {
       inline_keyboard: [
         [
           {
             text: "Running",
-            callback_data: `sport 0`,
+            callback_data: `sport Running`,
           },
         ],
         [
           {
             text: "Walking",
-            callback_data: `sport 1`,
-          },
-        ],
-        [
-          {
-            text: "Skiing",
-            callback_data: `sport 2`,
+            callback_data: `sport Walking`,
           },
         ],
         [
           {
             text: "Biking",
-            callback_data: `sport 4`,
+            callback_data: `sport Biking`,
           },
         ],
       ],
@@ -61,16 +59,25 @@ async function askGuild(ctx) {
         [
           {
             text: "SIK",
-            callback_data: "guild sik",
+            callback_data: "guild SIK",
           },
         ],
         [
           {
             text: "KIK",
-            callback_data: "guild kik",
+            callback_data: "guild KIK",
           },
         ],
       ],
+    },
+  });
+}
+
+async function askDistance(ctx) {
+  await ctx.reply({
+    text: "Insert kilometers in 1.1 format.",
+    reply_markup: {
+      force_reply: true,
     },
   });
 }
@@ -96,7 +103,7 @@ bot.command("log", (ctx) => {
     console.log(activeLogs);
   }
 
-  askSport(ctx);
+  askGuild(ctx);
 });
 
 bot.on("text", async (ctx) => {
@@ -115,25 +122,12 @@ bot.on("callback_query", async (ctx) => {
 
   // check what to do with cb data
   if (logType === "sport") {
-    await ctx.reply({
-      text: "Insert kilometers in 1.1 format.",
-      reply_markup: {
-        force_reply: true,
-      },
-    });
+    // TODO: handle data
+    await askDistance(ctx);
   } else if (logType === "guild") {
-    console.log("Guild input");
+    // TODO: handle data
+    await askSport(ctx);
   }
-});
-
-bot.on("inline_query", async (ctx) => {
-  console.log(ctx);
-  const result = [];
-  // Explicit usage
-  await ctx.telegram.answerInlineQuery(ctx.inlineQuery.id, result);
-
-  // Using context shortcut
-  await ctx.answerInlineQuery(result);
 });
 
 bot.launch();
