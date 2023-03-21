@@ -1,8 +1,8 @@
-require('dotenv').config() 
-const { Telegraf } = require('telegraf');
-var mysql      = require('mysql');
+require("dotenv").config();
+const { Telegraf } = require("telegraf");
+var mysql = require("mysql");
 
-// connect to db 
+// connect to db
 
 var connection = mysql.createConnection(process.env.DATABASE_URL);
 
@@ -17,81 +17,116 @@ var connection = mysql.createConnection(process.env.DATABASE_URL);
 
 // bot logic
 
-let activeLogs = []; 
+let activeLogs = [];
+
+async function askSport(ctx) {
+  ctx.reply({
+    text: "choose sport",
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: "Running",
+            callback_data: `sport 0`,
+          },
+        ],
+        [
+          {
+            text: "Walking",
+            callback_data: `sport 1`,
+          },
+        ],
+        [
+          {
+            text: "Skiing",
+            callback_data: `sport 2`,
+          },
+        ],
+        [
+          {
+            text: "Biking",
+            callback_data: `sport 4`,
+          },
+        ],
+      ],
+    },
+  });
+}
+
+async function askGuild(ctx) {
+  ctx.reply({
+    text: "Choose guild",
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: "SIK",
+            callback_data: "guild sik",
+          },
+        ],
+        [
+          {
+            text: "KIK",
+            callback_data: "guild kik",
+          },
+        ],
+      ],
+    },
+  });
+}
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-bot.command('log', ctx => {
+bot.command("log", (ctx) => {
   console.log(ctx.message);
 
   // TODO: create db entry
 
   const userID = ctx.message.from.id;
 
-  if (activeLogs.some(item => item.userID === userID)) {
+  if (activeLogs.some((item) => item.userID === userID)) {
     // remove old log item
   } else {
-    // TODO: get entry uuid after adding to db 
+    // TODO: get entry uuid after adding to db
     activeLogs.push({
       userID: userID,
       logState: 0,
-    })
+    });
 
     console.log(activeLogs);
   }
-    
-  ctx.reply({
-    text: 'choose sport',
-    reply_markup: {
-      inline_keyboard: [
-      [{
-        'text': 'Running',
-        'callback_data': `sport 0`
-      }],
-      [{
-        'text': 'Walking',
-        'callback_data': `sport 1`
-      }],
-      [{
-        'text': 'Skiing',
-        'callback_data': `sport 2`
-      }],
-      [{
-        'text': 'Biking',
-        'callback_data': `sport 4`
-      }]
-    ]},
-  });
-})
 
-bot.on('text', async (ctx) => {
-  // if we have 
+  askSport(ctx);
+});
+
+bot.on("text", async (ctx) => {
+  // if we have
   console.log(ctx);
-})
+});
 
-bot.on('callback_query', async (ctx) => {
+bot.on("callback_query", async (ctx) => {
   // answer callback
   await ctx.answerCbQuery();
 
-  var dataSplit = ctx.callbackQuery.data.split(' ');
+  var dataSplit = ctx.callbackQuery.data.split(" ");
 
   var logType = dataSplit[0];
   var logData = dataSplit[1];
 
   // check what to do with cb data
-  if (logType === 'sport') {
+  if (logType === "sport") {
     await ctx.reply({
       text: "Insert kilometers in 1.1 format.",
       reply_markup: {
         force_reply: true,
-      }
+      },
     });
-  } else if (logType === 'guild') {
-    console.log("Guild input")
+  } else if (logType === "guild") {
+    console.log("Guild input");
   }
 });
 
-bot.on('inline_query', async (ctx) => {
+bot.on("inline_query", async (ctx) => {
   console.log(ctx);
   const result = [];
   // Explicit usage
@@ -103,8 +138,8 @@ bot.on('inline_query', async (ctx) => {
 
 bot.launch();
 
-console.log("running bot")
+console.log("running bot");
 
 // Enable graceful stop
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+process.once("SIGINT", () => bot.stop("SIGINT"));
+process.once("SIGTERM", () => bot.stop("SIGTERM"));
