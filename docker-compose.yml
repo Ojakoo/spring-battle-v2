@@ -15,8 +15,8 @@ services:
   database:
     container_name: springbattlebot-db
     image: postgres:14.1
-    ports:
-      - 5432:5432
+    expose:
+      - 5432
     env_file:
       - .env
 
