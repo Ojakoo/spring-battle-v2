@@ -14,13 +14,13 @@ async function getLogs() {
   return users;
 }
 
-async function insertLog({ name, age }) {
+async function insertLog({ user_id, guild, sport, distance }) {
   const users = await sql`
     INSERT INTO logs
       (user_id, guild, sport, distance)
     VALUES
-      (123, SIK, Running, 2)
-    RETURNING name, age
+      (${user_id}, ${guild}, ${sport}, ${distance})
+    RETURNING sport, distance
   `;
   return users;
 }
@@ -28,14 +28,6 @@ async function insertLog({ name, age }) {
 // bot logic
 
 let activeLogs = [];
-
-const example = {
-  userID: "",
-  guild: "",
-  sport: "",
-  distance: "",
-  state: 0,
-};
 
 async function askSport(ctx) {
   ctx.reply({
@@ -88,6 +80,7 @@ async function askGuild(ctx) {
 }
 
 async function askDistance(ctx) {
+  // TODO: create db entry
   await ctx.reply({
     text: "Insert kilometers in 1.1 format.",
     reply_markup: {
@@ -99,42 +92,41 @@ async function askDistance(ctx) {
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
 bot.command("stats", async (ctx) => {
-  console.log("stats:");
   const hmm = await getLogs();
+  console.log("stats:");
   console.log(hmm);
 });
 
 bot.command("log", (ctx) => {
-  console.log(ctx.message);
-
-  // TODO: create db entry
-
-  const userID = ctx.message.from.id;
+  const userID = Number(ctx.message.from.id);
 
   if (activeLogs.some((item) => item.userID === userID)) {
-    // remove old log item
-  } else {
-    // TODO: get entry uuid after adding to db
+    var index = activeLogs.findIndex((item) => item.userID === userID);
+    activeLogs.splice(index, 1);
   }
 
   activeLogs.push({
     userID: userID,
+    guild: null,
+    sport: null,
+    distance: null,
     logState: 0,
   });
-
-  console.log(activeLogs);
 
   askGuild(ctx);
 });
 
 bot.on("text", async (ctx) => {
   // check the data for active log and
-  console.log(ctx);
+  console.log(activeLogs);
 });
 
 bot.on("callback_query", async (ctx) => {
   // answer callback
   await ctx.answerCbQuery();
+
+  const userID = Number(ctx.callbackQuery.from.id);
+  var activeLogIndex = activeLogs.findIndex((log) => log.userID === userID);
 
   var dataSplit = ctx.callbackQuery.data.split(" ");
 
@@ -143,11 +135,14 @@ bot.on("callback_query", async (ctx) => {
 
   // check what to do with cb data
   if (logType === "sport") {
-    // TODO: handle data
+    // TODO: add error handling
+    activeLogs[activeLogIndex].sport = logData;
 
     askDistance(ctx);
   } else if (logType === "guild") {
-    // TODO: handle data
+    // TODO: add error handling
+    activeLogs[activeLogIndex].guild = logData;
+
     askSport(ctx);
   }
 });
