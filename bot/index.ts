@@ -104,6 +104,7 @@ if (process.env.BOT_TOKEN) {
   bot.on("callback_query", async (ctx: Context<Update>) => {
     // answer callback
     await ctx.answerCbQuery();
+    await ctx.editMessageReplyMarkup(undefined);
 
     if (ctx.has(callbackQuery("data"))) {
       const user_id = Number(ctx.callbackQuery.from.id);
