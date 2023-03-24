@@ -1,10 +1,29 @@
 require("dotenv").config();
 const { Telegraf } = require("telegraf");
-// var mysql = require("mysql");
+const postgres = require("postgres");
 
 // connect to db
 
-// var connection = mysql.createConnection(process.env.DATABASE_URL);
+const sql = postgres({});
+
+async function getLogs() {
+  console.log("getting logs");
+  const users = await sql`
+    SELECT * FROM logs
+  `;
+  return users;
+}
+
+async function insertLog({ name, age }) {
+  const users = await sql`
+    INSERT INTO logs
+      (user_id, guild, sport, distance)
+    VALUES
+      (123, SIK, Running, 2)
+    RETURNING name, age
+  `;
+  return users;
+}
 
 // bot logic
 
@@ -78,6 +97,12 @@ async function askDistance(ctx) {
 }
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
+
+bot.command("stats", async (ctx) => {
+  console.log("stats:");
+  const hmm = await getLogs();
+  console.log(hmm);
+});
 
 bot.command("log", (ctx) => {
   console.log(ctx.message);
