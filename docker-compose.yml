@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  bot:
+    build: bot
+    image: bot
+    volumes:
+      - ./bot:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+
+  database:
+    container_name: springbattlebot-db
+    image: postgres:14.1
+    ports:
+      - 5432:5432
+    env_file:
+      - .env
+
+  flyway:
+    image: flyway/flyway:9.11.0-alpine
+    depends_on:
+      - database
+    volumes:
+      - ./flyway/sql/:/flyway/sql
+    command: -connectRetries=60 -baselineOnMigrate=true migrate
+    env_file:
+      - .env
