@@ -1,15 +1,18 @@
 require("dotenv").config();
+
 import { Context, Telegraf, Markup } from "telegraf";
 import { Update } from "telegraf/typings/core/types/typegram";
-import { callbackQuery } from "telegraf/filters";
-const postgres = require("postgres");
+import { callbackQuery, message } from "telegraf/filters";
 
+const postgres = require("postgres");
+import { PostgresError } from "postgres";
+
+import { ZodError, z } from "zod";
 // connect to db
 
 const sql = postgres({});
 
 async function getLogs() {
-  console.log("getting logs");
   const users = await sql`
     SELECT * FROM logs
   `;
@@ -64,16 +67,15 @@ async function askGuild(ctx: Context) {
 
 async function askDistance(ctx: Context) {
   // TODO: create db entry
-  await ctx.reply("Insert kilometers in 1.1 format.");
+  ctx.reply("Insert kilometers in 1.1 format.");
 }
 
 if (process.env.BOT_TOKEN) {
   const bot = new Telegraf(process.env.BOT_TOKEN);
 
   bot.command("stats", async () => {
-    const hmm = await getLogs();
-    console.log("stats:");
-    console.log(hmm);
+    const logs = await getLogs();
+    console.log(logs);
   });
 
   bot.command("log", (ctx: Context) => {
@@ -96,9 +98,56 @@ if (process.env.BOT_TOKEN) {
     }
   });
 
-  bot.on("text", async () => {
+  bot.command("cancel", (ctx: Context) => {
+    if (ctx.has(message("text"))) {
+      const user_id = Number(ctx.message.from.id);
+      var activeLogIndex = activeLogs.findIndex(
+        (log) => log.user_id === user_id
+      );
+
+      if (activeLogIndex != -1) {
+        activeLogs.splice(activeLogIndex);
+        console.log(activeLogs);
+      }
+    }
+  });
+
+  bot.on("text", async (ctx: Context) => {
     // check the data for active log and
-    console.log(activeLogs);
+
+    if (ctx.has(message("text"))) {
+      const user_id = Number(ctx.message.from.id);
+      var activeLogIndex = activeLogs.findIndex(
+        (log) => log.user_id === user_id
+      );
+
+      if (activeLogIndex != -1) {
+        try {
+          const text = ctx.message.text;
+          console.log(activeLogs);
+
+          activeLogs[activeLogIndex].distance = z.number().parse(Number(text));
+          await insertLog(activeLogs[activeLogIndex]);
+          activeLogs.splice(activeLogIndex);
+
+          console.log(activeLogs);
+
+          ctx.reply("Thanks!");
+        } catch (e) {
+          console.log(e);
+
+          if (e instanceof PostgresError) {
+            ctx.reply("Please select a option to continue");
+          }
+
+          if (e instanceof ZodError) {
+            ctx.reply(
+              "Something went wrong with your input. Make sure you use . as separator for kilometers and meters, please try again."
+            );
+          }
+        }
+      }
+    }
   });
 
   bot.on("callback_query", async (ctx: Context<Update>) => {
@@ -111,6 +160,12 @@ if (process.env.BOT_TOKEN) {
       var activeLogIndex = activeLogs.findIndex(
         (log) => log.user_id === user_id
       );
+
+      // stop logging if no active log found when user
+      // uses /cancel and then answers the inlineKeyboard
+      if (activeLogIndex == -1) {
+        return;
+      }
 
       var dataSplit = ctx.callbackQuery.data.split(" ");
 
