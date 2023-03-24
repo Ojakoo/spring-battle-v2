@@ -5,7 +5,7 @@ CREATE TABLE logs (
   id SERIAL PRIMARY KEY,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  user_id varchar(191) NOT NULL,
+  user_id INTEGER NOT NULL,
   guild GUILD NOT NULL DEFAULT 'SIK',
   sport SPORT NOT NULL DEFAULT 'Running',
   distance FLOAT NOT NULL DEFAULT '0'
