@@ -8,6 +8,24 @@ const postgres = require("postgres");
 import { PostgresError } from "postgres";
 
 import { ZodError, z } from "zod";
+
+// types
+
+type Guild = "SIK" | "KIK";
+type Sport = "Running" | "Walking" | "Biking";
+
+interface ActiveLog {
+  user_id: Number;
+  guild: Guild | null;
+  sport: Sport | null;
+  distance: Number | null;
+}
+
+interface StatReturn {
+  guild: Guild;
+  sum: number;
+}
+
 // connect to db
 
 const sql = postgres({});
@@ -17,6 +35,17 @@ async function getLogs() {
     SELECT * FROM logs
   `;
   return users;
+}
+
+async function getStats() {
+  const tot = await (<StatReturn[]>(
+    sql`SELECT guild, SUM(distance) FROM logs GROUP BY guild`
+  ));
+
+  return {
+    kik_total: tot.filter((item) => item.guild === "KIK")[0]?.sum,
+    sik_total: tot.filter((item) => item.guild === "SIK")[0]?.sum,
+  };
 }
 
 async function insertLog({ user_id, guild, sport, distance }: ActiveLog) {
@@ -31,16 +60,6 @@ async function insertLog({ user_id, guild, sport, distance }: ActiveLog) {
 }
 
 // bot logic
-
-type Guild = "SIK" | "KIK";
-type Sport = "Running" | "Walking" | "Biking";
-
-interface ActiveLog {
-  user_id: Number;
-  guild: Guild | null;
-  sport: Sport | null;
-  distance: Number | null;
-}
 
 let activeLogs: Array<ActiveLog> = [];
 
@@ -73,9 +92,22 @@ async function askDistance(ctx: Context) {
 if (process.env.BOT_TOKEN) {
   const bot = new Telegraf(process.env.BOT_TOKEN);
 
-  bot.command("stats", async () => {
-    const logs = await getLogs();
-    console.log(logs);
+  bot.command("stats", async (ctx: Context) => {
+    const { kik_total, sik_total } = await getStats();
+    const fixed_kik = kik_total.toFixed(1);
+    const fixed_sik = sik_total.toFixed(1);
+
+    console.log({ kik_total, sik_total });
+
+    let statusText = `It seems to be even with ${fixed_kik}km for both guilds.`;
+
+    if (kik_total < sik_total) {
+      statusText = `JAPPADAIDA!1!\n\nSik has the lead with ${fixed_sik}km. Kik has some catching up to do with ${fixed_kik}km.`;
+    } else if (kik_total > sik_total) {
+      statusText = `Yy-Kaa-Kone!\n\nKik has the lead with ${fixed_kik}km. Sik has some cathing up to do with ${fixed_sik}km.`;
+    }
+
+    ctx.reply(statusText);
   });
 
   bot.command("log", (ctx: Context) => {
