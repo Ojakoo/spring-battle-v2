@@ -38,13 +38,28 @@ async function getLogs() {
 }
 
 async function getStats() {
-  const tot = await (<StatReturn[]>(
-    sql`SELECT guild, SUM(distance) FROM logs GROUP BY guild`
-  ));
+  const tot: StatReturn[] =
+    await sql`SELECT guild, SUM(distance) FROM logs GROUP BY guild`;
+  const kik = tot.filter((item) => item.guild === "KIK")[0];
+  const sik = tot.filter((item) => item.guild === "SIK")[0];
 
   return {
-    kik_total: tot.filter((item) => item.guild === "KIK")[0]?.sum,
-    sik_total: tot.filter((item) => item.guild === "SIK")[0]?.sum,
+    kik_total: kik ? kik.sum : 0,
+    sik_total: sik ? sik.sum : 0,
+  };
+}
+
+async function getStatsByDayRange(start_date: Date, limit_date: Date) {
+  // query: created_at >= WANTED_DATE and created_at < NEXT_DATE
+  const tot: StatReturn[] =
+    await sql`SELECT guild, SUM(distance) FROM logs WHERE created_at >= ${start_date.toISOString()} AND created_at < ${limit_date.toISOString()} GROUP BY guild`;
+
+  const kik = tot.filter((item) => item.guild === "KIK")[0];
+  const sik = tot.filter((item) => item.guild === "SIK")[0];
+
+  return {
+    kik_range_total: kik ? kik.sum : 0,
+    sik_range_total: sik ? sik.sum : 0,
   };
 }
 
@@ -89,15 +104,38 @@ async function askDistance(ctx: Context) {
   ctx.reply("Insert kilometers in 1.1 format.");
 }
 
-if (process.env.BOT_TOKEN) {
+if (process.env.BOT_TOKEN && process.env.ADMINS) {
+  const admins = JSON.parse(process.env.ADMINS);
   const bot = new Telegraf(process.env.BOT_TOKEN);
 
-  bot.command("stats", async (ctx: Context) => {
+  console.log(admins);
+
+  bot.command("raw", async (ctx: Context) => {
+    if (ctx.message && admins.list.includes(ctx.message.from.id)) {
+      const data = await getLogs();
+      console.log(data);
+    }
+  });
+
+  bot.command("daily", async (ctx: Context) => {
+    if (ctx.message && admins.list.includes(ctx.message.from.id)) {
+      const start_date = new Date(new Date().toDateString());
+      const limit_date = new Date(new Date().setDate(start_date.getDate() + 1));
+
+      const { kik_range_total, sik_range_total } = await getStatsByDayRange(
+        start_date,
+        limit_date
+      );
+
+      console.log(kik_range_total);
+      console.log(sik_range_total);
+    }
+  });
+
+  bot.command("status", async (ctx: Context) => {
     const { kik_total, sik_total } = await getStats();
     const fixed_kik = kik_total.toFixed(1);
     const fixed_sik = sik_total.toFixed(1);
-
-    console.log({ kik_total, sik_total });
 
     let statusText = `It seems to be even with ${fixed_kik}km for both guilds.`;
 
@@ -111,7 +149,7 @@ if (process.env.BOT_TOKEN) {
   });
 
   bot.command("log", (ctx: Context) => {
-    if (ctx.message) {
+    if (ctx.message && ctx.message.chat.type == "private") {
       const user_id = Number(ctx.message.from.id);
 
       if (activeLogs.some((item) => item.user_id === user_id)) {
