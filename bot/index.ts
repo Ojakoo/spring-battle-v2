@@ -108,8 +108,6 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
   const admins = JSON.parse(process.env.ADMINS);
   const bot = new Telegraf(process.env.BOT_TOKEN);
 
-  console.log(admins);
-
   bot.command("raw", async (ctx: Context) => {
     if (ctx.message && admins.list.includes(ctx.message.from.id)) {
       const data = await getLogs();
