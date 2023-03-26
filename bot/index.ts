@@ -21,8 +21,14 @@ interface ActiveLog {
   distance: Number | null;
 }
 
-interface StatReturn {
+interface GuildStatReturn {
   guild: Guild;
+  sum: number;
+  count: number;
+}
+
+interface PersonStatReturn {
+  user_id: number;
   sum: number;
 }
 
@@ -38,7 +44,7 @@ async function getLogs() {
 }
 
 async function getStats() {
-  const tot: StatReturn[] =
+  const tot: GuildStatReturn[] =
     await sql`SELECT guild, SUM(distance) FROM logs GROUP BY guild`;
   const kik = tot.filter((item) => item.guild === "KIK")[0];
   const sik = tot.filter((item) => item.guild === "SIK")[0];
@@ -51,16 +57,43 @@ async function getStats() {
 
 async function getStatsByDayRange(start_date: Date, limit_date: Date) {
   // query: created_at >= WANTED_DATE and created_at < NEXT_DATE
-  const tot: StatReturn[] =
-    await sql`SELECT guild, SUM(distance) FROM logs WHERE created_at >= ${start_date.toISOString()} AND created_at < ${limit_date.toISOString()} GROUP BY guild`;
+  const tot: GuildStatReturn[] =
+    await sql`SELECT guild, SUM(distance), COUNT(distance) FROM logs WHERE created_at >= ${start_date.toISOString()} AND created_at < ${limit_date.toISOString()} GROUP BY guild`;
 
   const kik = tot.filter((item) => item.guild === "KIK")[0];
   const sik = tot.filter((item) => item.guild === "SIK")[0];
 
   return {
     kik_range_total: kik ? kik.sum : 0,
+    kik_count: kik ? kik.count : 0,
     sik_range_total: sik ? sik.sum : 0,
+    sik_count: sik ? sik.count : 0,
   };
+}
+
+async function getMyStats(user_id: number) {
+  const my_stats: PersonStatReturn[] =
+    await sql`SELECT user_id, SUM(distance) FROM logs WHERE user_id = ${user_id} GROUP BY user_id`;
+
+  return { sum: my_stats[0] ? my_stats[0].sum : 0 };
+}
+
+async function getPersonalStatsByGuild(guild: Guild) {
+  const stats: PersonStatReturn[] =
+    await sql`SELECT user_id, SUM(distance) FROM logs WHERE guild = ${guild} GROUP BY user_id`;
+
+  return stats;
+}
+
+async function getPersonalStatsByGuildAndDayRange(
+  guild: Guild,
+  start_date: Date,
+  limit_date: Date
+) {
+  const stats: PersonStatReturn[] =
+    await sql`SELECT user_id, SUM(distance) FROM logs WHERE guild = ${guild} AND created_at >= ${start_date.toISOString()} AND created_at < ${limit_date.toISOString()} GROUP BY user_id`;
+
+  return stats;
 }
 
 async function insertLog({ user_id, guild, sport, distance }: ActiveLog) {
@@ -120,13 +153,82 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
       const start_date = new Date(new Date().toDateString());
       const limit_date = new Date(new Date().setDate(start_date.getDate() + 1));
 
-      const { kik_range_total, sik_range_total } = await getStatsByDayRange(
+      const { kik_range_total, kik_count, sik_range_total, sik_count } =
+        await getStatsByDayRange(start_date, limit_date);
+
+      const kik_personals = await getPersonalStatsByGuildAndDayRange(
+        "KIK",
+        start_date,
+        limit_date
+      );
+      const sik_personals = await getPersonalStatsByGuildAndDayRange(
+        "SIK",
         start_date,
         limit_date
       );
 
-      console.log(kik_range_total);
-      console.log(sik_range_total);
+      const top_five_kik = kik_personals.sort((a, b) => {
+        return b.sum - a.sum;
+      });
+      const top_five_sik = sik_personals.sort((a, b) => {
+        return b.sum - a.sum;
+      });
+
+      const message = `The stats for the day ${start_date} are:\n\nsik total: ${kik_range_total.toFixed(
+        1
+      )}\nkik total: ${sik_range_total.toFixed(1)}\nsik top five:\n
+      ${
+        top_five_sik[0]
+          ? `1: ${top_five_sik[0].user_id} ${top_five_sik[0].sum.toFixed(1)}km`
+          : `1: no entry`
+      }
+      ${
+        top_five_sik[1]
+          ? `2: ${top_five_sik[1].user_id} ${top_five_sik[1].sum.toFixed(1)}km`
+          : `2: no entry`
+      }
+      ${
+        top_five_sik[2]
+          ? `3: ${top_five_sik[2].user_id} ${top_five_sik[2].sum.toFixed(1)}km`
+          : `3: no entry`
+      }
+      ${
+        top_five_sik[3]
+          ? `4: ${top_five_sik[3].user_id} ${top_five_sik[3].sum.toFixed(1)}km`
+          : `4: no entry`
+      }
+      ${
+        top_five_sik[4]
+          ? `5: ${top_five_sik[4].user_id} ${top_five_sik[4].sum.toFixed(1)}km`
+          : `5: no entry`
+      }\n\nkik top five:\n
+      ${
+        top_five_kik[0]
+          ? `1: ${top_five_kik[0].user_id} ${top_five_kik[0].sum.toFixed(1)}km`
+          : `1: no entry`
+      }
+      ${
+        top_five_kik[1]
+          ? `2: ${top_five_kik[1].user_id} ${top_five_kik[1].sum.toFixed(1)}km`
+          : `2: no entry`
+      }
+      ${
+        top_five_kik[2]
+          ? `3: ${top_five_kik[2].user_id} ${top_five_kik[2].sum.toFixed(1)}km`
+          : `3: no entry`
+      }
+      ${
+        top_five_kik[3]
+          ? `4: ${top_five_kik[3].user_id} ${top_five_kik[3].sum.toFixed(1)}km`
+          : `4: no entry`
+      }
+      ${
+        top_five_kik[4]
+          ? `5: ${top_five_kik[4].user_id} ${top_five_kik[4].sum.toFixed(1)}km`
+          : `5: no entry`
+      }`;
+
+      ctx.reply(message);
     }
   });
 
@@ -144,6 +246,16 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     }
 
     ctx.reply(statusText);
+  });
+
+  bot.command("me", async (ctx: Context) => {
+    if (ctx.message && ctx.message.chat.type == "private") {
+      const user_id = Number(ctx.message.from.id);
+
+      const my_stats = await getMyStats(user_id);
+
+      ctx.reply(`Your total contribution is ${my_stats.sum}km`);
+    }
   });
 
   bot.command("log", (ctx: Context) => {
