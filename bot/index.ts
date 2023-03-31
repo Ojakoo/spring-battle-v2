@@ -234,6 +234,8 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
   // personal commands
   bot.command("start", async (ctx: Context) => {
     if (ctx.message && ctx.message.chat.type == "private") {
+      // TODO: check db for user, if exists answer with only the available command
+
       const user_id = Number(ctx.message.from.id);
       const user_name = ctx.message.from.last_name
         ? `${ctx.message.from.first_name} ${ctx.message.from.last_name}`
@@ -358,14 +360,17 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         var logData = dataSplit[1];
 
         if (logType === "guild") {
-          // TODO: add error handling
-          activeStarts[activeStartsIndex].guild = logData as Guild;
-          await insertUser(activeStarts[activeStartsIndex]);
-          activeStarts.splice(activeStartsIndex);
+          try {
+            activeStarts[activeStartsIndex].guild = logData as Guild;
+            await insertUser(activeStarts[activeStartsIndex]);
+            activeStarts.splice(activeStartsIndex);
 
-          ctx.reply(
-            `Thanks! You chose ${logData} as your guild.\n\nTo start logging kilometers just send me a picture of your accomplishment!`
-          );
+            ctx.reply(
+              `Thanks! You chose ${logData} as your guild.\n\nTo start logging kilometers just send me a picture of your accomplishment!`
+            );
+          } catch (e) {
+            console.log(e);
+          }
         }
       } else if (activeLogIndex != -1) {
         var dataSplit = ctx.callbackQuery.data.split(" ");
