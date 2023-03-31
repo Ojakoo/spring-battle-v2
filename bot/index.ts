@@ -16,7 +16,6 @@ type Sport = "Running" | "Walking" | "Biking";
 
 interface ActiveLog {
   user_id: number;
-  guild: Guild | null;
   sport: Sport | null;
   distance: number | null;
 }
@@ -102,12 +101,16 @@ async function getPersonalStatsByGuildAndDayRange(
   return stats;
 }
 
-async function insertLog({ user_id, guild, sport, distance }: ActiveLog) {
+async function insertLog({ user_id, sport, distance }: ActiveLog) {
+  const user = await sql`SELECT guild FROM users WHERE user_id = ${user_id}`;
+
+  // TODO: throw error if no user
+
   const log = await sql`
     INSERT INTO logs
       (user_id, guild, sport, distance)
     VALUES
-      (${user_id}, ${guild}, ${sport}, ${distance})
+      (${user_id}, ${user[0].guild}, ${sport}, ${distance})
     RETURNING sport, distance
   `;
   return log;
@@ -115,12 +118,13 @@ async function insertLog({ user_id, guild, sport, distance }: ActiveLog) {
 
 async function insertUser({ user_id, user_name, guild }: ActiveStart) {
   const user = await sql`
-  INSERT INTO users
-    (user_id, user_name, guild)
-  VALUES
-    (${user_id}, ${user_name}, ${guild})
-  RETURNING user_name, guild
-`;
+    INSERT INTO users
+      (user_id, user_name, guild)
+    VALUES
+      (${user_id}, ${user_name}, ${guild})
+    RETURNING user_name, guild
+  `;
+
   console.log(`added user: ${user_name}`);
   return user;
 }
@@ -313,12 +317,11 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
       activeLogs.push({
         user_id: user_id,
-        guild: null,
         sport: null,
         distance: null,
       });
 
-      askGuild(ctx);
+      askSport(ctx);
     }
   });
 
@@ -400,7 +403,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
           // TODO: add error handling
           activeStarts[activeStartsIndex].guild = logData as Guild;
           await insertUser(activeStarts[activeStartsIndex]);
-          activeLogs.splice(activeStartsIndex);
+          activeStarts.splice(activeStartsIndex);
 
           ctx.reply("Thanks!");
         }
@@ -416,11 +419,6 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
           activeLogs[activeLogIndex].sport = logData as Sport;
 
           askDistance(ctx);
-        } else if (logType === "guild") {
-          // TODO: add error handling
-          activeLogs[activeLogIndex].guild = logData as Guild;
-
-          askSport(ctx);
         }
       }
     }

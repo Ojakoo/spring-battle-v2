@@ -15,3 +15,6 @@ CREATE TABLE logs (
   sport SPORT NOT NULL,
   distance FLOAT NOT NULL
 );
+
+CREATE INDEX log_user_id_index ON logs (user_id);
+CREATE INDEX log_guild_index ON logs (guild);
