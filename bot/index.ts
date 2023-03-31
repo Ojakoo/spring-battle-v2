@@ -313,7 +313,10 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         try {
           const text = ctx.message.text;
 
-          activeLogs[activeLogIndex].distance = z.number().parse(Number(text));
+          activeLogs[activeLogIndex].distance = z
+            .number()
+            .nonnegative()
+            .parse(Number(text));
           await insertLog(activeLogs[activeLogIndex]);
           activeLogs.splice(activeLogIndex);
 
@@ -327,7 +330,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
           if (e instanceof ZodError) {
             ctx.reply(
-              "Something went wrong with your input. Make sure you use . as separator for kilometers and meters, please try again."
+              "Something went wrong with your input. Make sure you use . as separator for kilometers and meters, also use positive numbers. Please try again."
             );
           }
         }
