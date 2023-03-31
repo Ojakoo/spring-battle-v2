@@ -1,12 +1,17 @@
 CREATE TYPE GUILD AS ENUM ('SIK', 'KIK');
 CREATE TYPE SPORT AS ENUM ('Running', 'Walking', 'Biking');
 
+CREATE TABLE users (
+  user_id INTEGER PRIMARY KEY,
+  user_name TEXT NOT NULL,
+  guild GUILD NOT NULL
+);
+
 CREATE TABLE logs (
   id SERIAL PRIMARY KEY,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  user_id INTEGER NOT NULL,
-  guild GUILD NOT NULL DEFAULT 'SIK',
-  sport SPORT NOT NULL DEFAULT 'Running',
-  distance FLOAT NOT NULL DEFAULT '0'
+  user_id INTEGER NOT NULL REFERENCES users(user_id),
+  guild GUILD NOT NULL,
+  sport SPORT NOT NULL,
+  distance FLOAT NOT NULL
 );

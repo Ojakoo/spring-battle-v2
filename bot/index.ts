@@ -15,10 +15,16 @@ type Guild = "SIK" | "KIK";
 type Sport = "Running" | "Walking" | "Biking";
 
 interface ActiveLog {
-  user_id: Number;
+  user_id: number;
   guild: Guild | null;
   sport: Sport | null;
-  distance: Number | null;
+  distance: number | null;
+}
+
+interface ActiveStart {
+  user_id: number;
+  user_name: string;
+  guild: Guild | null;
 }
 
 interface GuildStatReturn {
@@ -97,19 +103,32 @@ async function getPersonalStatsByGuildAndDayRange(
 }
 
 async function insertLog({ user_id, guild, sport, distance }: ActiveLog) {
-  const users = await sql`
+  const log = await sql`
     INSERT INTO logs
       (user_id, guild, sport, distance)
     VALUES
       (${user_id}, ${guild}, ${sport}, ${distance})
     RETURNING sport, distance
   `;
-  return users;
+  return log;
+}
+
+async function insertUser({ user_id, user_name, guild }: ActiveStart) {
+  const user = await sql`
+  INSERT INTO users
+    (user_id, user_name, guild)
+  VALUES
+    (${user_id}, ${user_name}, ${guild})
+  RETURNING user_name, guild
+`;
+  console.log(`added user: ${user_name}`);
+  return user;
 }
 
 // bot logic
 
 let activeLogs: Array<ActiveLog> = [];
+let activeStarts: Array<ActiveStart> = [];
 
 async function askSport(ctx: Context) {
   ctx.reply(
@@ -141,6 +160,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
   const admins = JSON.parse(process.env.ADMINS);
   const bot = new Telegraf(process.env.BOT_TOKEN);
 
+  // admin commands
   bot.command("raw", async (ctx: Context) => {
     if (ctx.message && admins.list.includes(ctx.message.from.id)) {
       const data = await getLogs();
@@ -232,6 +252,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     }
   });
 
+  // group commands
   bot.command("status", async (ctx: Context) => {
     const { kik_total, sik_total } = await getStats();
     const fixed_kik = kik_total.toFixed(1);
@@ -246,6 +267,29 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     }
 
     ctx.reply(statusText);
+  });
+
+  //personal commands
+  bot.command("start", async (ctx: Context) => {
+    if (ctx.message && ctx.message.chat.type == "private") {
+      const user_id = Number(ctx.message.from.id);
+      const user_name = ctx.message.from.last_name
+        ? `${ctx.message.from.first_name} ${ctx.message.from.last_name}`
+        : ctx.message.from.first_name;
+
+      if (activeStarts.some((item) => item.user_id === user_id)) {
+        var index = activeStarts.findIndex((item) => item.user_id === user_id);
+        activeStarts.splice(index, 1);
+      }
+
+      activeStarts.push({
+        user_id: user_id,
+        user_name: user_name,
+        guild: null,
+      });
+
+      askGuild(ctx);
+    }
   });
 
   bot.command("me", async (ctx: Context) => {
@@ -287,17 +331,16 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
       if (activeLogIndex != -1) {
         activeLogs.splice(activeLogIndex);
-        console.log(activeLogs);
       }
+
+      ctx.reply("Succesfully stopped the logging event.");
     }
   });
 
+  // text handler
   bot.on("text", async (ctx: Context) => {
     // check the data for active log and
-    console.log("text");
-
     if (ctx.has(message("text"))) {
-      console.log(ctx.message.text);
       const user_id = Number(ctx.message.from.id);
       var activeLogIndex = activeLogs.findIndex(
         (log) => log.user_id === user_id
@@ -306,13 +349,10 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
       if (activeLogIndex != -1) {
         try {
           const text = ctx.message.text;
-          console.log(activeLogs);
 
           activeLogs[activeLogIndex].distance = z.number().parse(Number(text));
           await insertLog(activeLogs[activeLogIndex]);
           activeLogs.splice(activeLogIndex);
-
-          console.log(activeLogs);
 
           ctx.reply("Thanks!");
         } catch (e) {
@@ -332,6 +372,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     }
   });
 
+  // callback handler
   bot.on("callback_query", async (ctx: Context<Update>) => {
     // answer callback
     await ctx.answerCbQuery();
@@ -343,28 +384,44 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         (log) => log.user_id === user_id
       );
 
+      var activeStartsIndex = activeStarts.findIndex(
+        (log) => log.user_id === user_id
+      );
+
       // stop logging if no active log found when user
       // uses /cancel and then answers the inlineKeyboard
-      if (activeLogIndex == -1) {
-        return;
-      }
+      if (activeStartsIndex != -1) {
+        var dataSplit = ctx.callbackQuery.data.split(" ");
 
-      var dataSplit = ctx.callbackQuery.data.split(" ");
+        var logType = dataSplit[0];
+        var logData = dataSplit[1];
 
-      var logType = dataSplit[0];
-      var logData = dataSplit[1];
+        if (logType == "guild") {
+          // TODO: add error handling
+          activeStarts[activeStartsIndex].guild = logData as Guild;
+          await insertUser(activeStarts[activeStartsIndex]);
+          activeLogs.splice(activeStartsIndex);
 
-      // check what to do with cb data
-      if (logType === "sport") {
-        // TODO: add error handling
-        activeLogs[activeLogIndex].sport = logData as Sport;
+          ctx.reply("Thanks!");
+        }
+      } else if (activeLogIndex != -1) {
+        var dataSplit = ctx.callbackQuery.data.split(" ");
 
-        askDistance(ctx);
-      } else if (logType === "guild") {
-        // TODO: add error handling
-        activeLogs[activeLogIndex].guild = logData as Guild;
+        var logType = dataSplit[0];
+        var logData = dataSplit[1];
 
-        askSport(ctx);
+        // check what to do with cb data
+        if (logType === "sport") {
+          // TODO: add error handling
+          activeLogs[activeLogIndex].sport = logData as Sport;
+
+          askDistance(ctx);
+        } else if (logType === "guild") {
+          // TODO: add error handling
+          activeLogs[activeLogIndex].guild = logData as Guild;
+
+          askSport(ctx);
+        }
       }
     }
   });
