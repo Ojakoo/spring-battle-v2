@@ -294,8 +294,10 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
   bot.on("text", async (ctx: Context) => {
     // check the data for active log and
+    console.log("text");
 
     if (ctx.has(message("text"))) {
+      console.log(ctx.message.text);
       const user_id = Number(ctx.message.from.id);
       var activeLogIndex = activeLogs.findIndex(
         (log) => log.user_id === user_id
