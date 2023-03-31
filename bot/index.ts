@@ -376,4 +376,6 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
   // Enable graceful stop
   process.once("SIGINT", () => bot.stop("SIGINT"));
   process.once("SIGTERM", () => bot.stop("SIGTERM"));
+} else {
+  console.log("missing some environment variables...");
 }
