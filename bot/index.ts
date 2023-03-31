@@ -42,12 +42,7 @@ interface PersonStatReturn {
 
 const sql = postgres({});
 
-async function getLogs() {
-  const users = await sql`
-    SELECT * FROM logs
-  `;
-  return users;
-}
+// database access functions
 
 async function getStats() {
   const tot: GuildStatReturn[] =
@@ -82,13 +77,6 @@ async function getMyStats(user_id: number) {
     await sql`SELECT user_id, SUM(distance) FROM logs WHERE user_id = ${user_id} GROUP BY user_id`;
 
   return { sum: my_stats[0] ? my_stats[0].sum : 0 };
-}
-
-async function getPersonalStatsByGuild(guild: Guild) {
-  const stats: PersonStatReturn[] =
-    await sql`SELECT user_id, SUM(distance) FROM logs WHERE guild = ${guild} GROUP BY user_id`;
-
-  return stats;
 }
 
 async function getPersonalStatsByGuildAndDayRange(
@@ -164,12 +152,6 @@ async function askGuild(ctx: Context) {
       Markup.button.callback("SIK", "guild SIK"),
       Markup.button.callback("KIK", "guild KIK"),
     ])
-  );
-}
-
-async function askDistance(ctx: Context) {
-  ctx.reply(
-    "Type the number of kilometers using '.' as a separator, for example: 5.5"
   );
 }
 
@@ -249,7 +231,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     ctx.reply(statusText);
   });
 
-  //personal commands
+  // personal commands
   bot.command("start", async (ctx: Context) => {
     if (ctx.message && ctx.message.chat.type == "private") {
       const user_id = Number(ctx.message.from.id);
@@ -381,7 +363,9 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
           await insertUser(activeStarts[activeStartsIndex]);
           activeStarts.splice(activeStartsIndex);
 
-          ctx.reply("Thanks!");
+          ctx.reply(
+            `Thanks! You chose ${logData} as your guild.\n\nTo start logging kilometers just send me a picture of your accomplishment!`
+          );
         }
       } else if (activeLogIndex != -1) {
         var dataSplit = ctx.callbackQuery.data.split(" ");
@@ -394,7 +378,9 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
           // TODO: add error handling
           activeLogs[activeLogIndex].sport = logData as Sport;
 
-          askDistance(ctx);
+          ctx.reply(
+            "Type the number of kilometers using '.' as a separator, for example: 5.5"
+          );
         }
       }
     }
