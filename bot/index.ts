@@ -34,6 +34,7 @@ interface GuildStatReturn {
 
 interface PersonStatReturn {
   user_id: number;
+  user_name: string;
   sum: number;
 }
 
@@ -95,8 +96,13 @@ async function getPersonalStatsByGuildAndDayRange(
   start_date: Date,
   limit_date: Date
 ) {
-  const stats: PersonStatReturn[] =
-    await sql`SELECT user_id, SUM(distance) FROM logs WHERE guild = ${guild} AND created_at >= ${start_date.toISOString()} AND created_at < ${limit_date.toISOString()} GROUP BY user_id`;
+  const stats: PersonStatReturn[] = await sql`
+    SELECT logs.user_id, users.user_name, SUM(distance) 
+    FROM logs JOIN users ON logs.user_id = users.user_id 
+    WHERE logs.guild = ${guild} 
+      AND logs.created_at >= ${start_date.toISOString()} 
+      AND logs.created_at < ${limit_date.toISOString()} 
+    GROUP BY logs.user_id, users.user_name`;
 
   return stats;
 }
@@ -106,14 +112,20 @@ async function insertLog({ user_id, sport, distance }: ActiveLog) {
 
   // TODO: throw error if no user
 
+  if (sport === null || distance === null || user_id === null) {
+    return;
+  }
+
   const log = await sql`
     INSERT INTO logs
       (user_id, guild, sport, distance)
     VALUES
-      (${user_id}, ${user[0].guild}, ${sport}, ${distance})
+      (${user_id}, ${user[0].guild}, ${sport}, ${
+    sport === "Biking" ? distance * 0.5 : distance
+  })
     RETURNING sport, distance
   `;
-  return log;
+  return;
 }
 
 async function insertUser({ user_id, user_name, guild }: ActiveStart) {
@@ -136,7 +148,7 @@ let activeStarts: Array<ActiveStart> = [];
 
 async function askSport(ctx: Context) {
   ctx.reply(
-    "Choose sport",
+    "Choose the sport:",
     Markup.inlineKeyboard([
       Markup.button.callback("Running", "sport Running"),
       Markup.button.callback("Walking", "sport Walking"),
@@ -147,7 +159,7 @@ async function askSport(ctx: Context) {
 
 async function askGuild(ctx: Context) {
   ctx.reply(
-    "Choose guild",
+    "Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nFor questions about the battle contact @x or @y. If there are some technical problems with me, you can contact @Ojakoo.\n\nTo start logging Choose guild you are going to represent:",
     Markup.inlineKeyboard([
       Markup.button.callback("SIK", "guild SIK"),
       Markup.button.callback("KIK", "guild KIK"),
@@ -156,8 +168,9 @@ async function askGuild(ctx: Context) {
 }
 
 async function askDistance(ctx: Context) {
-  // TODO: create db entry
-  ctx.reply("Insert kilometers in 1.1 format.");
+  ctx.reply(
+    "Type the number of kilometers using '.' as a separator, for example: 5.5"
+  );
 }
 
 if (process.env.BOT_TOKEN && process.env.ADMINS) {
@@ -165,13 +178,6 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
   const bot = new Telegraf(process.env.BOT_TOKEN);
 
   // admin commands
-  bot.command("raw", async (ctx: Context) => {
-    if (ctx.message && admins.list.includes(ctx.message.from.id)) {
-      const data = await getLogs();
-      console.log(data);
-    }
-  });
-
   bot.command("daily", async (ctx: Context) => {
     if (ctx.message && admins.list.includes(ctx.message.from.id)) {
       const start_date = new Date(new Date().toDateString());
@@ -191,66 +197,36 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         limit_date
       );
 
-      const top_five_kik = kik_personals.sort((a, b) => {
+      const sorted_kik = kik_personals.sort((a, b) => {
         return b.sum - a.sum;
       });
-      const top_five_sik = sik_personals.sort((a, b) => {
+      const sorted_sik = sik_personals.sort((a, b) => {
         return b.sum - a.sum;
       });
 
-      const message = `The stats for the day ${start_date} are:\n\nsik total: ${kik_range_total.toFixed(
+      let message = `The stats for the day ${start_date} are:\n\nKIK total: ${kik_range_total.toFixed(
         1
-      )}\nkik total: ${sik_range_total.toFixed(1)}\nsik top five:\n
-      ${
-        top_five_sik[0]
-          ? `1: ${top_five_sik[0].user_id} ${top_five_sik[0].sum.toFixed(1)}km`
-          : `1: no entry`
+      )}km with ${kik_count} entries.\n\nKIK top five:\n`;
+
+      for (let i = 0; i < 5; i++) {
+        message += sorted_kik[i]
+          ? `${i + 1}: ${sorted_kik[i].user_name} ${sorted_kik[i].sum.toFixed(
+              1
+            )}km\n`
+          : "";
       }
-      ${
-        top_five_sik[1]
-          ? `2: ${top_five_sik[1].user_id} ${top_five_sik[1].sum.toFixed(1)}km`
-          : `2: no entry`
+
+      message += `\nSIK total: ${sik_range_total.toFixed(
+        1
+      )}km with ${sik_count} entries.\n\nSIK top five:\n`;
+
+      for (let i = 0; i < 5; i++) {
+        message += sorted_sik[i]
+          ? `${i + 1}: ${sorted_sik[i].user_name} ${sorted_sik[i].sum.toFixed(
+              1
+            )}km\n`
+          : "";
       }
-      ${
-        top_five_sik[2]
-          ? `3: ${top_five_sik[2].user_id} ${top_five_sik[2].sum.toFixed(1)}km`
-          : `3: no entry`
-      }
-      ${
-        top_five_sik[3]
-          ? `4: ${top_five_sik[3].user_id} ${top_five_sik[3].sum.toFixed(1)}km`
-          : `4: no entry`
-      }
-      ${
-        top_five_sik[4]
-          ? `5: ${top_five_sik[4].user_id} ${top_five_sik[4].sum.toFixed(1)}km`
-          : `5: no entry`
-      }\n\nkik top five:\n
-      ${
-        top_five_kik[0]
-          ? `1: ${top_five_kik[0].user_id} ${top_five_kik[0].sum.toFixed(1)}km`
-          : `1: no entry`
-      }
-      ${
-        top_five_kik[1]
-          ? `2: ${top_five_kik[1].user_id} ${top_five_kik[1].sum.toFixed(1)}km`
-          : `2: no entry`
-      }
-      ${
-        top_five_kik[2]
-          ? `3: ${top_five_kik[2].user_id} ${top_five_kik[2].sum.toFixed(1)}km`
-          : `3: no entry`
-      }
-      ${
-        top_five_kik[3]
-          ? `4: ${top_five_kik[3].user_id} ${top_five_kik[3].sum.toFixed(1)}km`
-          : `4: no entry`
-      }
-      ${
-        top_five_kik[4]
-          ? `5: ${top_five_kik[4].user_id} ${top_five_kik[4].sum.toFixed(1)}km`
-          : `5: no entry`
-      }`;
 
       ctx.reply(message);
     }
@@ -296,7 +272,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     }
   });
 
-  bot.command("me", async (ctx: Context) => {
+  bot.command("personal", async (ctx: Context) => {
     if (ctx.message && ctx.message.chat.type == "private") {
       const user_id = Number(ctx.message.from.id);
 
@@ -307,7 +283,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
   });
 
   bot.command("log", (ctx: Context) => {
-    if (ctx.message && ctx.message.chat.type == "private") {
+    if (ctx.message && ctx.message.chat.type === "private") {
       const user_id = Number(ctx.message.from.id);
 
       if (activeLogs.some((item) => item.user_id === user_id)) {
@@ -349,7 +325,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         (log) => log.user_id === user_id
       );
 
-      if (activeLogIndex != -1) {
+      if (activeLogIndex !== -1 && activeLogs[activeLogIndex].sport !== null) {
         try {
           const text = ctx.message.text;
 
@@ -399,7 +375,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         var logType = dataSplit[0];
         var logData = dataSplit[1];
 
-        if (logType == "guild") {
+        if (logType === "guild") {
           // TODO: add error handling
           activeStarts[activeStartsIndex].guild = logData as Guild;
           await insertUser(activeStarts[activeStartsIndex]);
