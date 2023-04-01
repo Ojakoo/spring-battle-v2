@@ -147,7 +147,7 @@ async function askSport(ctx: Context) {
 
 async function askGuild(ctx: Context) {
   ctx.reply(
-    "Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nFor questions about the battle contact @x or @y. If there are some technical problems with me, you can contact @Ojakoo.\n\nTo start logging Choose guild you are going to represent:",
+    "Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nFor questions about the battle contact @taskisenantti @valtterireippainen @vointimestari @hennakaloriina or @jennimarttinen. If there are some technical problems with me, you can contact @Ojakoo.\n\nTo start logging Choose guild you are going to represent:",
     Markup.inlineKeyboard([
       Markup.button.callback("SIK", "guild SIK"),
       Markup.button.callback("KIK", "guild KIK"),
@@ -296,7 +296,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
           activeLogs[activeLogIndex].distance = z
             .number()
-            .nonnegative()
+            .min(1)
             .parse(Number(text));
           await insertLog(activeLogs[activeLogIndex]);
           activeLogs.splice(activeLogIndex);
