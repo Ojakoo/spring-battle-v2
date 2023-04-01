@@ -56,6 +56,13 @@ async function getStats() {
   };
 }
 
+async function getUser(user_id: number) {
+  const user =
+    await sql`SELECT user_name, guild FROM users WHERE user_id = ${user_id}`;
+
+  return user;
+}
+
 async function getStatsByDayRange(start_date: Date, limit_date: Date) {
   // query: created_at >= WANTED_DATE and created_at < NEXT_DATE
   const tot: GuildStatReturn[] =
@@ -125,7 +132,6 @@ async function insertUser({ user_id, user_name, guild }: ActiveStart) {
     RETURNING user_name, guild
   `;
 
-  console.log(`added user: ${user_name}`);
   return user;
 }
 
@@ -146,13 +152,23 @@ async function askSport(ctx: Context) {
 }
 
 async function askGuild(ctx: Context) {
-  ctx.reply(
-    "Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nFor questions about the battle contact @taskisenantti @valtterireippainen @vointimestari @hennakaloriina or @jennimarttinen. If there are some technical problems with me, you can contact @Ojakoo.\n\nTo start logging Choose guild you are going to represent:",
-    Markup.inlineKeyboard([
-      Markup.button.callback("SIK", "guild SIK"),
-      Markup.button.callback("KIK", "guild KIK"),
-    ])
-  );
+  if (ctx.message) {
+    const user = await getUser(ctx.message.from.id);
+
+    if (user[0]) {
+      ctx.reply(
+        `Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nFor questions about the battle contact @taskisenantti @valtterireippainen @vointimestari @hennakaloriina or @jennimarttinen. If there are some technical problems with me, you can contact @Ojakoo.\n\nYou are competing with ${user[0].guild}`
+      );
+    } else {
+      ctx.reply(
+        "Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nFor questions about the battle contact @taskisenantti @valtterireippainen @vointimestari @hennakaloriina or @jennimarttinen. If there are some technical problems with me, you can contact @Ojakoo.\n\nTo register Choose guild you are going to represent, after this just send me a picture to log your kilometers!",
+        Markup.inlineKeyboard([
+          Markup.button.callback("SIK", "guild SIK"),
+          Markup.button.callback("KIK", "guild KIK"),
+        ])
+      );
+    }
+  }
 }
 
 if (process.env.BOT_TOKEN && process.env.ADMINS) {
@@ -311,7 +327,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
           if (e instanceof ZodError) {
             ctx.reply(
-              "Something went wrong with your input. Make sure you use . as separator for kilometers and meters, also use positive numbers. Please try again."
+              "Something went wrong with your input. Make sure you use . as separator for kilometers and meters, also the minimum distance is 1km. Please try again."
             );
           }
         }
