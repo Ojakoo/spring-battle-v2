@@ -136,7 +136,7 @@ let activeStarts: Array<ActiveStart> = [];
 
 async function askSport(ctx: Context) {
   ctx.reply(
-    "Choose the sport:",
+    "Please choose the sport:",
     Markup.inlineKeyboard([
       Markup.button.callback("Running", "sport Running"),
       Markup.button.callback("Walking", "sport Walking"),
@@ -266,25 +266,6 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     }
   });
 
-  bot.command("log", (ctx: Context) => {
-    if (ctx.message && ctx.message.chat.type === "private") {
-      const user_id = Number(ctx.message.from.id);
-
-      if (activeLogs.some((item) => item.user_id === user_id)) {
-        var index = activeLogs.findIndex((item) => item.user_id === user_id);
-        activeLogs.splice(index, 1);
-      }
-
-      activeLogs.push({
-        user_id: user_id,
-        sport: null,
-        distance: null,
-      });
-
-      askSport(ctx);
-    }
-  });
-
   bot.command("cancel", (ctx: Context) => {
     if (ctx.has(message("text"))) {
       const user_id = Number(ctx.message.from.id);
@@ -320,7 +301,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
           await insertLog(activeLogs[activeLogIndex]);
           activeLogs.splice(activeLogIndex);
 
-          ctx.reply("Thanks!");
+          ctx.reply("Thanks for participating!");
         } catch (e) {
           console.log(e);
 
@@ -335,6 +316,27 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
           }
         }
       }
+    }
+  });
+
+  bot.on("photo", async (ctx: Context) => {
+    if (ctx.message && ctx.message.chat.type === "private") {
+      console.log(ctx);
+
+      const user_id = Number(ctx.message.from.id);
+
+      if (activeLogs.some((item) => item.user_id === user_id)) {
+        var index = activeLogs.findIndex((item) => item.user_id === user_id);
+        activeLogs.splice(index, 1);
+      }
+
+      activeLogs.push({
+        user_id: user_id,
+        sport: null,
+        distance: null,
+      });
+
+      askSport(ctx);
     }
   });
 
