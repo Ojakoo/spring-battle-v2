@@ -321,8 +321,6 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
   bot.on("photo", async (ctx: Context) => {
     if (ctx.message && ctx.message.chat.type === "private") {
-      console.log(ctx);
-
       const user_id = Number(ctx.message.from.id);
 
       if (activeLogs.some((item) => item.user_id === user_id)) {
