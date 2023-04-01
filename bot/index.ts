@@ -108,6 +108,7 @@ async function insertLog({ user_id, sport, distance }: ActiveLog) {
   // TODO: throw error if no user
 
   if (sport === null || distance === null || user_id === null) {
+    console.log(`Sport: ${sport}, distance; ${distance}, user_id ${user_id}`);
     return;
   }
 
@@ -149,26 +150,6 @@ async function askSport(ctx: Context) {
       Markup.button.callback("Biking", "sport Biking"),
     ])
   );
-}
-
-async function askGuild(ctx: Context) {
-  if (ctx.message) {
-    const user = await getUser(ctx.message.from.id);
-
-    if (user[0]) {
-      ctx.reply(
-        `Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nFor questions about the battle contact @taskisenantti @valtterireippainen @vointimestari @hennakaloriina or @jennimarttinen. If there are some technical problems with me, you can contact @Ojakoo.\n\nYou are competing with ${user[0].guild}`
-      );
-    } else {
-      ctx.reply(
-        "Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nFor questions about the battle contact @taskisenantti @valtterireippainen @vointimestari @hennakaloriina or @jennimarttinen. If there are some technical problems with me, you can contact @Ojakoo.\n\nTo register Choose guild you are going to represent, after this just send me a picture to log your kilometers!",
-        Markup.inlineKeyboard([
-          Markup.button.callback("SIK", "guild SIK"),
-          Markup.button.callback("KIK", "guild KIK"),
-        ])
-      );
-    }
-  }
 }
 
 if (process.env.BOT_TOKEN && process.env.ADMINS) {
@@ -250,25 +231,39 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
   // personal commands
   bot.command("start", async (ctx: Context) => {
     if (ctx.message && ctx.message.chat.type == "private") {
-      // TODO: check db for user, if exists answer with only the available command
-
       const user_id = Number(ctx.message.from.id);
-      const user_name = ctx.message.from.last_name
-        ? `${ctx.message.from.first_name} ${ctx.message.from.last_name}`
-        : ctx.message.from.first_name;
+      const user = await getUser(user_id);
 
-      if (activeStarts.some((item) => item.user_id === user_id)) {
-        var index = activeStarts.findIndex((item) => item.user_id === user_id);
-        activeStarts.splice(index, 1);
+      if (user[0]) {
+        ctx.reply(
+          `Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nFor questions about the battle contact @taskisenantti @valtterireippainen @vointimestari @hennakaloriina or @jennimarttinen. If there are some technical problems with me, you can contact @Ojakoo.\n\nYou are competing with ${user[0].guild}`
+        );
+      } else {
+        const user_name = ctx.message.from.last_name
+          ? `${ctx.message.from.first_name} ${ctx.message.from.last_name}`
+          : ctx.message.from.first_name;
+
+        if (activeStarts.some((item) => item.user_id === user_id)) {
+          var index = activeStarts.findIndex(
+            (item) => item.user_id === user_id
+          );
+          activeStarts.splice(index, 1);
+        }
+
+        activeStarts.push({
+          user_id: user_id,
+          user_name: user_name,
+          guild: null,
+        });
+
+        ctx.reply(
+          "Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nFor questions about the battle contact @taskisenantti @valtterireippainen @vointimestari @hennakaloriina or @jennimarttinen. If there are some technical problems with me, you can contact @Ojakoo.\n\nTo register Choose guild you are going to represent, after this just send me a picture to log your kilometers!",
+          Markup.inlineKeyboard([
+            Markup.button.callback("SIK", "guild SIK"),
+            Markup.button.callback("KIK", "guild KIK"),
+          ])
+        );
       }
-
-      activeStarts.push({
-        user_id: user_id,
-        user_name: user_name,
-        guild: null,
-      });
-
-      askGuild(ctx);
     }
   });
 
@@ -322,7 +317,9 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
           console.log(e);
 
           if (e instanceof PostgresError) {
-            ctx.reply("Please select a option to continue");
+            ctx.reply(
+              "Encountered an error with the database please contact @Ojakoo"
+            );
           }
 
           if (e instanceof ZodError) {
@@ -338,19 +335,25 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
   bot.on("photo", async (ctx: Context) => {
     if (ctx.message && ctx.message.chat.type === "private") {
       const user_id = Number(ctx.message.from.id);
+      const user = await getUser(user_id);
 
-      if (activeLogs.some((item) => item.user_id === user_id)) {
-        var index = activeLogs.findIndex((item) => item.user_id === user_id);
-        activeLogs.splice(index, 1);
+      if (user[0]) {
+        if (activeLogs.some((item) => item.user_id === user_id)) {
+          var index = activeLogs.findIndex((item) => item.user_id === user_id);
+          activeLogs.splice(index, 1);
+        }
+
+        activeLogs.push({
+          user_id: user_id,
+          sport: null,
+          distance: null,
+        });
+
+        askSport(ctx);
+      } else {
+        console.log(`User id: ${user_id}. User: ${user}`);
+        ctx.reply("Please register with /start before recording kilometers.");
       }
-
-      activeLogs.push({
-        user_id: user_id,
-        sport: null,
-        distance: null,
-      });
-
-      askSport(ctx);
     }
   });
 
