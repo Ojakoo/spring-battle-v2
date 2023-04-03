@@ -151,22 +151,33 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
   // admin commands
   bot.command("daily", async (ctx: Context) => {
+    // TODO: add ability to choose the day range
     if (ctx.message && admins.list.includes(ctx.message.from.id)) {
       const start_date = new Date(new Date().toDateString());
-      const limit_date = new Date(new Date().setDate(start_date.getDate() + 1));
+      const limit_date = new Date(
+        new Date(new Date().setDate(start_date.getDate() + 1)).toDateString()
+      );
+
+      // Db stores data in gmt 0, transform local finnish time to match
+      const start_date_GMT = new Date(
+        start_date.setHours(start_date.getHours() - 3)
+      );
+      const limit_date_GMT = new Date(
+        limit_date.setHours(limit_date.getHours() - 3)
+      );
 
       const { kik_range_total, kik_count, sik_range_total, sik_count } =
-        await getStatsByDayRange(start_date, limit_date);
+        await getStatsByDayRange(start_date_GMT, limit_date_GMT);
 
       const kik_personals = await getPersonalStatsByGuildAndDayRange(
         "KIK",
-        start_date,
-        limit_date
+        start_date_GMT,
+        limit_date_GMT
       );
       const sik_personals = await getPersonalStatsByGuildAndDayRange(
         "SIK",
-        start_date,
-        limit_date
+        start_date_GMT,
+        limit_date_GMT
       );
 
       const sorted_kik = kik_personals.sort((a, b) => {
@@ -176,7 +187,8 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         return b.sum - a.sum;
       });
 
-      let message = `The stats for the day ${start_date} are:\n\nKIK total: ${kik_range_total.toFixed(
+      // use limit here as we moved limit and start -3
+      let message = `The stats for the day ${limit_date.toDateString()} are:\n\nKIK total: ${kik_range_total.toFixed(
         1
       )}km with ${kik_count} entries.\n\nKIK top five:\n`;
 
@@ -266,7 +278,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
       const my_stats = await getMyStats(user_id);
 
-      ctx.reply(`Your total contribution is ${my_stats.sum}km`);
+      ctx.reply(`Your total contribution is ${my_stats.sum.toFixed(1)}km`);
     }
   });
 
