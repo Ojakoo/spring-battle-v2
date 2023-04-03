@@ -103,25 +103,18 @@ async function getPersonalStatsByGuildAndDayRange(
 }
 
 async function insertLog({ user_id, sport, distance }: ActiveLog) {
-  const user = await sql`SELECT guild FROM users WHERE user_id = ${user_id}`;
-
-  // TODO: throw error if no user
-
-  if (sport === null || distance === null || user_id === null) {
-    console.log(`Sport: ${sport}, distance; ${distance}, user_id ${user_id}`);
-    return;
+  if (user_id !== null && sport !== null && distance !== null) {
+    const user = await sql`SELECT guild FROM users WHERE user_id = ${user_id}`;
+    const log = await sql`
+      INSERT INTO logs
+        (user_id, guild, sport, distance)
+      VALUES
+        (${user_id}, ${user[0].guild}, ${sport}, ${
+      sport === "Biking" ? distance * 0.5 : distance
+    })
+      RETURNING sport, distance
+    `;
   }
-
-  const log = await sql`
-    INSERT INTO logs
-      (user_id, guild, sport, distance)
-    VALUES
-      (${user_id}, ${user[0].guild}, ${sport}, ${
-    sport === "Biking" ? distance * 0.5 : distance
-  })
-    RETURNING sport, distance
-  `;
-  return;
 }
 
 async function insertUser({ user_id, user_name, guild }: ActiveStart) {
