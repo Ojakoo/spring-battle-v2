@@ -145,6 +145,90 @@ async function askSport(ctx: Context) {
   );
 }
 
+async function handleDaily(ctx: Context, day_modifier: number = 0) {
+  const today = new Date(new Date().toDateString());
+
+  const start_date = new Date(
+    new Date(new Date().setDate(today.getDate() + day_modifier)).toDateString()
+  );
+  const limit_date = new Date(
+    new Date(
+      new Date().setDate(today.getDate() + day_modifier + 1)
+    ).toDateString()
+  );
+
+  // Db stores data in gmt 0, transform local finnish time to match
+  const start_date_GMT = new Date(
+    start_date.setHours(start_date.getHours() - 3)
+  );
+  const limit_date_GMT = new Date(
+    limit_date.setHours(limit_date.getHours() - 3)
+  );
+
+  const { kik_range_total, kik_count, sik_range_total, sik_count } =
+    await getStatsByDayRange(start_date_GMT, limit_date_GMT);
+
+  const kik_personals = await getPersonalStatsByGuildAndDayRange(
+    "KIK",
+    start_date_GMT,
+    limit_date_GMT
+  );
+  const sik_personals = await getPersonalStatsByGuildAndDayRange(
+    "SIK",
+    start_date_GMT,
+    limit_date_GMT
+  );
+
+  const sorted_kik = kik_personals.sort((a, b) => {
+    return b.sum - a.sum;
+  });
+  const sorted_sik = sik_personals.sort((a, b) => {
+    return b.sum - a.sum;
+  });
+
+  // use limit here as we moved limit and start -3
+  let message = `The stats for the day ${limit_date.toDateString()} are:\n\nKIK total: ${kik_range_total.toFixed(
+    1
+  )}km with ${kik_count} entries.\n\nKIK top five:\n`;
+
+  for (let i = 0; i < 5; i++) {
+    message += sorted_kik[i]
+      ? `${i + 1}: ${sorted_kik[i].user_name} ${sorted_kik[i].sum.toFixed(
+          1
+        )}km\n`
+      : "";
+  }
+
+  message += `\nSIK total: ${sik_range_total.toFixed(
+    1
+  )}km with ${sik_count} entries.\n\nSIK top five:\n`;
+
+  for (let i = 0; i < 5; i++) {
+    message += sorted_sik[i]
+      ? `${i + 1}: ${sorted_sik[i].user_name} ${sorted_sik[i].sum.toFixed(
+          1
+        )}km\n`
+      : "";
+  }
+
+  ctx.reply(message);
+}
+
+// TODO: functio
+// async function handleOtherDay(ctx: Context) {
+//   const today = new Date(new Date().toDateString()).getDate();
+//   // TODO: change to .env
+//   const first_day = new Date("2023-04-01T00:00:00").getDate();
+//   ctx.reply(
+//     "Please choose the day:",
+//     Markup.inlineKeyboard([
+//       ...loop through days
+//       Markup.button.callback("Yesterday", "daily -1"),
+//       Markup.button.callback("Other", "daily 1"),
+//     ])
+//   );
+// }
+
 if (process.env.BOT_TOKEN && process.env.ADMINS) {
   const admins = JSON.parse(process.env.ADMINS);
   const bot = new Telegraf(process.env.BOT_TOKEN);
@@ -153,66 +237,13 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
   bot.command("daily", async (ctx: Context) => {
     // TODO: add ability to choose the day range
     if (ctx.message && admins.list.includes(ctx.message.from.id)) {
-      const start_date = new Date(new Date().toDateString());
-      const limit_date = new Date(
-        new Date(new Date().setDate(start_date.getDate() + 1)).toDateString()
+      ctx.reply(
+        "Please choose the day:",
+        Markup.inlineKeyboard([
+          Markup.button.callback("Today", "daily 0"),
+          Markup.button.callback("Yesterday", "daily -1"),
+        ])
       );
-
-      // Db stores data in gmt 0, transform local finnish time to match
-      const start_date_GMT = new Date(
-        start_date.setHours(start_date.getHours() - 3)
-      );
-      const limit_date_GMT = new Date(
-        limit_date.setHours(limit_date.getHours() - 3)
-      );
-
-      const { kik_range_total, kik_count, sik_range_total, sik_count } =
-        await getStatsByDayRange(start_date_GMT, limit_date_GMT);
-
-      const kik_personals = await getPersonalStatsByGuildAndDayRange(
-        "KIK",
-        start_date_GMT,
-        limit_date_GMT
-      );
-      const sik_personals = await getPersonalStatsByGuildAndDayRange(
-        "SIK",
-        start_date_GMT,
-        limit_date_GMT
-      );
-
-      const sorted_kik = kik_personals.sort((a, b) => {
-        return b.sum - a.sum;
-      });
-      const sorted_sik = sik_personals.sort((a, b) => {
-        return b.sum - a.sum;
-      });
-
-      // use limit here as we moved limit and start -3
-      let message = `The stats for the day ${limit_date.toDateString()} are:\n\nKIK total: ${kik_range_total.toFixed(
-        1
-      )}km with ${kik_count} entries.\n\nKIK top five:\n`;
-
-      for (let i = 0; i < 5; i++) {
-        message += sorted_kik[i]
-          ? `${i + 1}: ${sorted_kik[i].user_name} ${sorted_kik[i].sum.toFixed(
-              1
-            )}km\n`
-          : "";
-      }
-
-      message += `\nSIK total: ${sik_range_total.toFixed(
-        1
-      )}km with ${sik_count} entries.\n\nSIK top five:\n`;
-
-      for (let i = 0; i < 5; i++) {
-        message += sorted_sik[i]
-          ? `${i + 1}: ${sorted_sik[i].user_name} ${sorted_sik[i].sum.toFixed(
-              1
-            )}km\n`
-          : "";
-      }
-
-      ctx.reply(message);
     }
   });
 
@@ -378,42 +409,34 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         (log) => log.user_id === user_id
       );
 
+      var dataSplit = ctx.callbackQuery.data.split(" ");
+
+      var logType = dataSplit[0];
+      var logData = dataSplit[1];
+
       // stop logging if no active log found when user
       // uses /cancel and then answers the inlineKeyboard
-      if (activeStartsIndex != -1) {
-        var dataSplit = ctx.callbackQuery.data.split(" ");
-
-        var logType = dataSplit[0];
-        var logData = dataSplit[1];
-
-        if (logType === "guild") {
-          try {
-            activeStarts[activeStartsIndex].guild = logData as Guild;
-            await insertUser(activeStarts[activeStartsIndex]);
-            activeStarts.splice(activeStartsIndex);
-
-            ctx.reply(
-              `Thanks! You chose ${logData} as your guild.\n\nTo start logging kilometers just send me a picture of your accomplishment!`
-            );
-          } catch (e) {
-            console.log(e);
-          }
-        }
-      } else if (activeLogIndex != -1) {
-        var dataSplit = ctx.callbackQuery.data.split(" ");
-
-        var logType = dataSplit[0];
-        var logData = dataSplit[1];
-
-        // check what to do with cb data
-        if (logType === "sport") {
-          // TODO: add error handling
-          activeLogs[activeLogIndex].sport = logData as Sport;
+      if (activeStartsIndex != -1 && logType === "guild") {
+        try {
+          activeStarts[activeStartsIndex].guild = logData as Guild;
+          await insertUser(activeStarts[activeStartsIndex]);
+          activeStarts.splice(activeStartsIndex);
 
           ctx.reply(
-            "Type the number of kilometers using '.' as a separator, for example: 5.5"
+            `Thanks! You chose ${logData} as your guild.\n\nTo start logging kilometers just send me a picture of your accomplishment!`
           );
+        } catch (e) {
+          console.log(e);
         }
+      } else if (activeLogIndex != -1 && logType === "sport") {
+        // TODO: add error handling
+        activeLogs[activeLogIndex].sport = logData as Sport;
+
+        ctx.reply(
+          "Type the number of kilometers using '.' as a separator, for example: 5.5"
+        );
+      } else if (logType === "daily") {
+        await handleDaily(ctx, Number(logData));
       }
     }
   });
