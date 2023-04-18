@@ -313,11 +313,13 @@ async function handleAll(ctx: Context) {
     1
   )}km with ${kik_count} entries.\nKIK Biking: ${kik_biking.sum.toFixed(
     1
-  )}km with ${kik_biking.count} entries.\nKIK total: ${kik_running.sum.toFixed(
-    1
-  )}km with ${kik_running.count} entries.\nKIK total: ${kik_walking.sum.toFixed(
-    1
-  )}km with ${kik_walking.count} entries.\n\nKIK top ten:\n`;
+  )}km with ${
+    kik_biking.count
+  } entries.\nKIK Running: ${kik_running.sum.toFixed(1)}km with ${
+    kik_running.count
+  } entries.\nKIK Walking: ${kik_walking.sum.toFixed(1)}km with ${
+    kik_walking.count
+  } entries.\n\nKIK top ten:\n`;
 
   for (let i = 0; i < 10; i++) {
     message += sorted_kik[i]
@@ -331,11 +333,13 @@ async function handleAll(ctx: Context) {
     1
   )}km with ${sik_count} entries.\nSIK Biking: ${sik_biking.sum.toFixed(
     1
-  )}km with ${sik_biking.count} entries.\nSIK total: ${sik_running.sum.toFixed(
-    1
-  )}km with ${sik_running.count} entries.\nSIK total: ${sik_walking.sum.toFixed(
-    1
-  )}km with ${sik_walking.count} entries.\n\nSIK top ten:\n`;
+  )}km with ${
+    sik_biking.count
+  } entries.\nSIK Running: ${sik_running.sum.toFixed(1)}km with ${
+    sik_running.count
+  } entries.\nSIK Walking: ${sik_walking.sum.toFixed(1)}km with ${
+    sik_walking.count
+  } entries.\n\nSIK top ten:\n`;
 
   for (let i = 0; i < 10; i++) {
     message += sorted_sik[i]
