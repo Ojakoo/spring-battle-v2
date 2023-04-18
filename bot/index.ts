@@ -352,21 +352,6 @@ async function handleAll(ctx: Context) {
   ctx.reply(message);
 }
 
-// TODO: functio
-// async function handleOtherDay(ctx: Context) {
-//   const today = new Date(new Date().toDateString()).getDate();
-//   // TODO: change to .env
-//   const first_day = new Date("2023-04-01T00:00:00").getDate();
-//   ctx.reply(
-//     "Please choose the day:",
-//     Markup.inlineKeyboard([
-//       ...loop through days
-//       Markup.button.callback("Yesterday", "daily -1"),
-//       Markup.button.callback("Other", "daily 1"),
-//     ])
-//   );
-// }
-
 if (process.env.BOT_TOKEN && process.env.ADMINS) {
   const admins = JSON.parse(process.env.ADMINS);
   const bot = new Telegraf(process.env.BOT_TOKEN);
