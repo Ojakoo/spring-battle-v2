@@ -105,7 +105,7 @@ async function getDistanceBySport() {
       ? sik_walking
       : { guild: "SIK", sport: "Walking", sum: 0, count: 0 },
     kik_biking: kik_biking
-      ? sik_biking
+      ? kik_biking
       : { guild: "KIK", sport: "Biking", sum: 0, count: 0 },
     kik_running: kik_running
       ? kik_running
