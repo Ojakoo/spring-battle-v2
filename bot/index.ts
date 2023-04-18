@@ -32,6 +32,13 @@ interface GuildStatReturn {
   count: number;
 }
 
+interface SportStatReturn {
+  guild: Guild;
+  sum: number;
+  count: number;
+  sport: Sport;
+}
+
 interface PersonStatReturn {
   user_id: number;
   user_name: string;
@@ -63,10 +70,60 @@ async function getUser(user_id: number) {
   return user;
 }
 
+async function getDistanceBySport() {
+  const sportData: SportStatReturn[] =
+    await sql`SELECT guild, sport, SUM(distance), COUNT(distance)::int FROM logs GROUP BY guild, sport`;
+
+  const sik_walking = sportData.filter(
+    (item) => item.guild === "SIK" && item.sport === "Walking"
+  )[0];
+  const sik_running = sportData.filter(
+    (item) => item.guild === "SIK" && item.sport === "Running"
+  )[0];
+  const sik_biking = sportData.filter(
+    (item) => item.guild === "SIK" && item.sport === "Biking"
+  )[0];
+
+  const kik_walking = sportData.filter(
+    (item) => item.guild === "KIK" && item.sport === "Walking"
+  )[0];
+  const kik_running = sportData.filter(
+    (item) => item.guild === "KIK" && item.sport === "Running"
+  )[0];
+  const kik_biking = sportData.filter(
+    (item) => item.guild === "KIK" && item.sport === "Biking"
+  )[0];
+
+  return {
+    sik_biking: sik_biking
+      ? sik_biking
+      : { guild: "SIK", sport: "Biking", sum: 0, count: 0 },
+    sik_running: sik_running
+      ? sik_running
+      : { guild: "SIK", sport: "Running", sum: 0, count: 0 },
+    sik_walking: sik_walking
+      ? sik_walking
+      : { guild: "SIK", sport: "Walking", sum: 0, count: 0 },
+    kik_biking: sik_biking
+      ? sik_biking
+      : { guild: "KIK", sport: "Biking", sum: 0, count: 0 },
+    kik_running: kik_running
+      ? kik_running
+      : { guild: "KIK", sport: "Running", sum: 0, count: 0 },
+    kik_walking: kik_walking
+      ? kik_walking
+      : { guild: "KIK", sport: "Walking", sum: 0, count: 0 },
+  };
+}
+
 async function getStatsByDayRange(start_date: Date, limit_date: Date) {
   // query: created_at >= WANTED_DATE and created_at < NEXT_DATE
   const tot: GuildStatReturn[] =
-    await sql`SELECT guild, SUM(distance), COUNT(distance) FROM logs WHERE created_at >= ${start_date.toISOString()} AND created_at < ${limit_date.toISOString()} GROUP BY guild`;
+    await sql`SELECT guild, SUM(distance), COUNT(distance)::int 
+      FROM logs 
+      WHERE created_at >= ${start_date.toISOString()} 
+        AND created_at < ${limit_date.toISOString()} 
+      GROUP BY guild`;
 
   const kik = tot.filter((item) => item.guild === "KIK")[0];
   const sik = tot.filter((item) => item.guild === "SIK")[0];
@@ -97,6 +154,16 @@ async function getPersonalStatsByGuildAndDayRange(
     WHERE logs.guild = ${guild} 
       AND logs.created_at >= ${start_date.toISOString()} 
       AND logs.created_at < ${limit_date.toISOString()} 
+    GROUP BY logs.user_id, users.user_name`;
+
+  return stats;
+}
+
+async function getPersonalStatsByGuild(guild: Guild) {
+  const stats: PersonStatReturn[] = await sql`
+    SELECT logs.user_id, users.user_name, SUM(distance)
+    FROM logs JOIN users ON logs.user_id = users.user_id
+    WHERE logs.guild = ${guild}
     GROUP BY logs.user_id, users.user_name`;
 
   return stats;
@@ -214,6 +281,73 @@ async function handleDaily(ctx: Context, day_modifier: number = 0) {
   ctx.reply(message);
 }
 
+async function handleAll(ctx: Context) {
+  const {
+    sik_biking,
+    sik_running,
+    sik_walking,
+    kik_biking,
+    kik_running,
+    kik_walking,
+  } = await getDistanceBySport();
+
+  const sik_range_total = sik_biking.sum + sik_running.sum + sik_walking.sum;
+  const sik_count = sik_biking.count + sik_running.count + sik_walking.count;
+
+  const kik_range_total = kik_biking.sum + kik_running.sum + kik_walking.sum;
+  const kik_count = kik_biking.count + kik_running.count + kik_walking.count;
+
+  const kik_personals = await getPersonalStatsByGuild("KIK");
+  const sik_personals = await getPersonalStatsByGuild("SIK");
+
+  const sorted_kik = kik_personals.sort((a, b) => {
+    return b.sum - a.sum;
+  });
+  const sorted_sik = sik_personals.sort((a, b) => {
+    return b.sum - a.sum;
+  });
+
+  let message = "";
+
+  message += `\nKIK total: ${kik_range_total.toFixed(
+    1
+  )}km with ${kik_count} entries.\nKIK Biking: ${kik_biking.sum.toFixed(
+    1
+  )}km with ${kik_biking.count} entries.\nKIK total: ${kik_running.sum.toFixed(
+    1
+  )}km with ${kik_running.count} entries.\nKIK total: ${kik_walking.sum.toFixed(
+    1
+  )}km with ${kik_walking.count} entries.\n\nKIK top ten:\n`;
+
+  for (let i = 0; i < 10; i++) {
+    message += sorted_kik[i]
+      ? `${i + 1}: ${sorted_kik[i].user_name} ${sorted_kik[i].sum.toFixed(
+          1
+        )}km\n`
+      : "";
+  }
+
+  message += `\nSIK total: ${sik_range_total.toFixed(
+    1
+  )}km with ${sik_count} entries.\nSIK Biking: ${sik_biking.sum.toFixed(
+    1
+  )}km with ${sik_biking.count} entries.\nSIK total: ${sik_running.sum.toFixed(
+    1
+  )}km with ${sik_running.count} entries.\nSIK total: ${sik_walking.sum.toFixed(
+    1
+  )}km with ${sik_walking.count} entries.\n\nSIK top ten:\n`;
+
+  for (let i = 0; i < 10; i++) {
+    message += sorted_sik[i]
+      ? `${i + 1}: ${sorted_sik[i].user_name} ${sorted_sik[i].sum.toFixed(
+          1
+        )}km\n`
+      : "";
+  }
+
+  ctx.reply(message);
+}
+
 // TODO: functio
 // async function handleOtherDay(ctx: Context) {
 //   const today = new Date(new Date().toDateString()).getDate();
@@ -244,6 +378,12 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
           Markup.button.callback("Yesterday", "daily -1"),
         ])
       );
+    }
+  });
+
+  bot.command("all", async (ctx: Context) => {
+    if (ctx.message && admins.list.includes(ctx.message.from.id)) {
+      await handleAll(ctx);
     }
   });
 
