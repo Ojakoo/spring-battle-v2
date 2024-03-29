@@ -11,7 +11,11 @@ import { ZodError, z } from "zod";
 
 // types
 type Guild = "SIK" | "KIK";
-type Sport = "Running / Walking" | "Activity" | "Biking";
+enum Sport {
+  running_walking = "Running/Walking",
+  activity = "Activity",
+  biking = "Biking",
+}
 
 interface ActiveLog {
   user_id: number;
@@ -74,44 +78,44 @@ async function getDistanceBySport() {
     await sql`SELECT guild, sport, SUM(distance), COUNT(distance)::int FROM logs GROUP BY guild, sport`;
 
   const sik_activity = sportData.filter(
-    (item) => item.guild === "SIK" && item.sport === "Activity"
+    (item) => item.guild === "SIK" && item.sport === Sport.activity
   )[0];
   const sik_running = sportData.filter(
-    (item) => item.guild === "SIK" && item.sport === "Running / Walking"
+    (item) => item.guild === "SIK" && item.sport === Sport.running_walking
   )[0];
   const sik_biking = sportData.filter(
-    (item) => item.guild === "SIK" && item.sport === "Biking"
+    (item) => item.guild === "SIK" && item.sport === Sport.biking
   )[0];
 
   const kik_activity = sportData.filter(
-    (item) => item.guild === "KIK" && item.sport === "Activity"
+    (item) => item.guild === "KIK" && item.sport === Sport.activity
   )[0];
   const kik_running = sportData.filter(
-    (item) => item.guild === "KIK" && item.sport === "Running / Walking"
+    (item) => item.guild === "KIK" && item.sport === Sport.running_walking
   )[0];
   const kik_biking = sportData.filter(
-    (item) => item.guild === "KIK" && item.sport === "Biking"
+    (item) => item.guild === "KIK" && item.sport === Sport.biking
   )[0];
 
   return {
     sik_biking: sik_biking
       ? sik_biking
-      : { guild: "SIK", sport: "Biking", sum: 0, count: 0 },
+      : { guild: "SIK", sport: Sport.biking, sum: 0, count: 0 },
     sik_running: sik_running
       ? sik_running
-      : { guild: "SIK", sport: "Running / Walking", sum: 0, count: 0 },
+      : { guild: "SIK", sport: Sport.running_walking, sum: 0, count: 0 },
     sik_activity: sik_activity
       ? sik_activity
-      : { guild: "SIK", sport: "Activity", sum: 0, count: 0 },
+      : { guild: "SIK", sport: Sport.activity, sum: 0, count: 0 },
     kik_biking: kik_biking
       ? kik_biking
-      : { guild: "KIK", sport: "Biking", sum: 0, count: 0 },
+      : { guild: "KIK", sport: Sport.biking, sum: 0, count: 0 },
     kik_running: kik_running
       ? kik_running
-      : { guild: "KIK", sport: "Running / Walking", sum: 0, count: 0 },
+      : { guild: "KIK", sport: Sport.running_walking, sum: 0, count: 0 },
     kik_activity: kik_activity
       ? kik_activity
-      : { guild: "KIK", sport: "Activity", sum: 0, count: 0 },
+      : { guild: "KIK", sport: Sport.activity, sum: 0, count: 0 },
   };
 }
 
@@ -202,9 +206,12 @@ async function askSport(ctx: Context) {
   ctx.reply(
     "Please choose the sport:",
     Markup.inlineKeyboard([
-      Markup.button.callback("Running / Walking", "sport Running / Walking"),
-      Markup.button.callback("Activity", "sport Activity"),
-      Markup.button.callback("Biking", "sport Biking"),
+      Markup.button.callback(
+        Sport.running_walking,
+        `sport ${Sport.running_walking}`
+      ),
+      Markup.button.callback(Sport.activity, `sport ${Sport.activity}`),
+      Markup.button.callback(Sport.biking, `sport ${Sport.biking}`),
     ])
   );
 }
@@ -476,7 +483,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
           // set distance for activity input is steps so convert to kms
           activeLogs[activeLogIndex].distance =
-            activeLogs[activeLogIndex].sport === "Activity"
+            activeLogs[activeLogIndex].sport === Sport.activity
               ? distance * 0.0007
               : distance;
 
@@ -495,7 +502,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
           if (e instanceof ZodError) {
             ctx.reply(
-              activeLogs[activeLogIndex].sport === "Activity"
+              activeLogs[activeLogIndex].sport === Sport.activity
                 ? "Something went wrong with your input. Make sure you use whole numbers for steps. Please try again."
                 : "Something went wrong with your input. Make sure you use . as separator for kilometers and meters, also the minimum distance is 1km. Please try again."
             );
@@ -570,7 +577,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         activeLogs[activeLogIndex].sport = logData as Sport;
 
         ctx.reply(
-          logData === "Activity"
+          logData === Sport.activity
             ? "Type the number of steps that you have walked. These are converted to kilometers automatically"
             : "Type the number of kilometers using '.' as a separator, for example: 5.5"
         );
