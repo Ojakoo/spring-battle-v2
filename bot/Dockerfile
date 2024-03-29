@@ -1,10 +1,10 @@
 FROM node:alpine3.16
 
-WORKDIR /usr/app
+WORKDIR /app
 
-COPY package.json .
-RUN npm install
+# COPY package.json .
+# COPY package-lock.json .
 
-COPY . . 
+# RUN npm ci 
 
-CMD [ "npm", "run", "start" ]
+CMD [ "npm", "run", "dev" ]
