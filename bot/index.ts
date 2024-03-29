@@ -175,9 +175,7 @@ async function insertLog({ user_id, sport, distance }: ActiveLog) {
       INSERT INTO logs
         (user_id, guild, sport, distance)
       VALUES
-        (${user_id}, ${user[0].guild}, ${sport}, ${
-      sport === "Biking" ? distance * 0.5 : distance
-    })
+        (${user_id}, ${user[0].guild}, ${sport}, ${distance})
       RETURNING sport, distance
     `;
   }
@@ -306,9 +304,7 @@ async function handleAll(ctx: Context) {
     return b.sum - a.sum;
   });
 
-  let message = "";
-
-  message += `\nKIK total: ${kik_range_total.toFixed(
+  let message = `\nKIK total: ${kik_range_total.toFixed(
     1
   )}km with ${kik_count} entries.\nKIK Biking: ${kik_biking.sum.toFixed(
     1
@@ -476,10 +472,14 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         try {
           const text = ctx.message.text;
 
-          activeLogs[activeLogIndex].distance = z
-            .number()
-            .min(1)
-            .parse(Number(text));
+          const distance = z.number().min(1).parse(Number(text));
+
+          // set distance for activity input is steps so convert to kms
+          activeLogs[activeLogIndex].distance =
+            activeLogs[activeLogIndex].sport === "Activity"
+              ? distance * 0.0007
+              : distance;
+
           await insertLog(activeLogs[activeLogIndex]);
           activeLogs.splice(activeLogIndex);
 
@@ -489,13 +489,15 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
           if (e instanceof PostgresError) {
             ctx.reply(
-              "Encountered an error with the database please contact @Ojakoo"
+              "Encountered an error with logging data please contact @Ojakoo"
             );
           }
 
           if (e instanceof ZodError) {
             ctx.reply(
-              "Something went wrong with your input. Make sure you use . as separator for kilometers and meters, also the minimum distance is 1km. Please try again."
+              activeLogs[activeLogIndex].sport === "Activity"
+                ? "Something went wrong with your input. Make sure you use whole numbers for steps. Please try again."
+                : "Something went wrong with your input. Make sure you use . as separator for kilometers and meters, also the minimum distance is 1km. Please try again."
             );
           }
         }
@@ -568,7 +570,9 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         activeLogs[activeLogIndex].sport = logData as Sport;
 
         ctx.reply(
-          "Type the number of kilometers using '.' as a separator, for example: 5.5"
+          logData === "Activity"
+            ? "Type the number of steps that you have walked. These are converted to kilometers automatically"
+            : "Type the number of kilometers using '.' as a separator, for example: 5.5"
         );
       } else if (logType === "daily") {
         await handleDaily(ctx, Number(logData));
