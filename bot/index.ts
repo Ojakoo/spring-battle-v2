@@ -10,9 +10,8 @@ import { PostgresError } from "postgres";
 import { ZodError, z } from "zod";
 
 // types
-
 type Guild = "SIK" | "KIK";
-type Sport = "Running" | "Walking" | "Biking";
+type Sport = "Running / Walking" | "Activity" | "Biking";
 
 interface ActiveLog {
   user_id: number;
@@ -74,21 +73,21 @@ async function getDistanceBySport() {
   const sportData: SportStatReturn[] =
     await sql`SELECT guild, sport, SUM(distance), COUNT(distance)::int FROM logs GROUP BY guild, sport`;
 
-  const sik_walking = sportData.filter(
-    (item) => item.guild === "SIK" && item.sport === "Walking"
+  const sik_activity = sportData.filter(
+    (item) => item.guild === "SIK" && item.sport === "Activity"
   )[0];
   const sik_running = sportData.filter(
-    (item) => item.guild === "SIK" && item.sport === "Running"
+    (item) => item.guild === "SIK" && item.sport === "Running / Walking"
   )[0];
   const sik_biking = sportData.filter(
     (item) => item.guild === "SIK" && item.sport === "Biking"
   )[0];
 
-  const kik_walking = sportData.filter(
-    (item) => item.guild === "KIK" && item.sport === "Walking"
+  const kik_activity = sportData.filter(
+    (item) => item.guild === "KIK" && item.sport === "Activity"
   )[0];
   const kik_running = sportData.filter(
-    (item) => item.guild === "KIK" && item.sport === "Running"
+    (item) => item.guild === "KIK" && item.sport === "Running / Walking"
   )[0];
   const kik_biking = sportData.filter(
     (item) => item.guild === "KIK" && item.sport === "Biking"
@@ -100,19 +99,19 @@ async function getDistanceBySport() {
       : { guild: "SIK", sport: "Biking", sum: 0, count: 0 },
     sik_running: sik_running
       ? sik_running
-      : { guild: "SIK", sport: "Running", sum: 0, count: 0 },
-    sik_walking: sik_walking
-      ? sik_walking
-      : { guild: "SIK", sport: "Walking", sum: 0, count: 0 },
+      : { guild: "SIK", sport: "Running / Walking", sum: 0, count: 0 },
+    sik_activity: sik_activity
+      ? sik_activity
+      : { guild: "SIK", sport: "Activity", sum: 0, count: 0 },
     kik_biking: kik_biking
       ? kik_biking
       : { guild: "KIK", sport: "Biking", sum: 0, count: 0 },
     kik_running: kik_running
       ? kik_running
-      : { guild: "KIK", sport: "Running", sum: 0, count: 0 },
-    kik_walking: kik_walking
-      ? kik_walking
-      : { guild: "KIK", sport: "Walking", sum: 0, count: 0 },
+      : { guild: "KIK", sport: "Running / Walking", sum: 0, count: 0 },
+    kik_activity: kik_activity
+      ? kik_activity
+      : { guild: "KIK", sport: "Activity", sum: 0, count: 0 },
   };
 }
 
@@ -205,8 +204,8 @@ async function askSport(ctx: Context) {
   ctx.reply(
     "Please choose the sport:",
     Markup.inlineKeyboard([
-      Markup.button.callback("Running", "sport Running"),
-      Markup.button.callback("Walking", "sport Walking"),
+      Markup.button.callback("Running / Walking", "sport Running / Walking"),
+      Markup.button.callback("Activity", "sport Activity"),
       Markup.button.callback("Biking", "sport Biking"),
     ])
   );
@@ -285,17 +284,17 @@ async function handleAll(ctx: Context) {
   const {
     sik_biking,
     sik_running,
-    sik_walking,
+    sik_activity,
     kik_biking,
     kik_running,
-    kik_walking,
+    kik_activity,
   } = await getDistanceBySport();
 
-  const sik_range_total = sik_biking.sum + sik_running.sum + sik_walking.sum;
-  const sik_count = sik_biking.count + sik_running.count + sik_walking.count;
+  const sik_range_total = sik_biking.sum + sik_running.sum + sik_activity.sum;
+  const sik_count = sik_biking.count + sik_running.count + sik_activity.count;
 
-  const kik_range_total = kik_biking.sum + kik_running.sum + kik_walking.sum;
-  const kik_count = kik_biking.count + kik_running.count + kik_walking.count;
+  const kik_range_total = kik_biking.sum + kik_running.sum + kik_activity.sum;
+  const kik_count = kik_biking.count + kik_running.count + kik_activity.count;
 
   const kik_personals = await getPersonalStatsByGuild("KIK");
   const sik_personals = await getPersonalStatsByGuild("SIK");
@@ -315,10 +314,10 @@ async function handleAll(ctx: Context) {
     1
   )}km with ${
     kik_biking.count
-  } entries.\nKIK Running: ${kik_running.sum.toFixed(1)}km with ${
+  } entries.\nKIK Running / Walking: ${kik_running.sum.toFixed(1)}km with ${
     kik_running.count
-  } entries.\nKIK Walking: ${kik_walking.sum.toFixed(1)}km with ${
-    kik_walking.count
+  } entries.\nKIK Activity: ${kik_activity.sum.toFixed(1)}km with ${
+    kik_activity.count
   } entries.\n\nKIK top ten:\n`;
 
   for (let i = 0; i < 10; i++) {
@@ -335,10 +334,10 @@ async function handleAll(ctx: Context) {
     1
   )}km with ${
     sik_biking.count
-  } entries.\nSIK Running: ${sik_running.sum.toFixed(1)}km with ${
+  } entries.\nSIK Running / Walking: ${sik_running.sum.toFixed(1)}km with ${
     sik_running.count
-  } entries.\nSIK Walking: ${sik_walking.sum.toFixed(1)}km with ${
-    sik_walking.count
+  } entries.\nSIK Activity: ${sik_activity.sum.toFixed(1)}km with ${
+    sik_activity.count
   } entries.\n\nSIK top ten:\n`;
 
   for (let i = 0; i < 10; i++) {
