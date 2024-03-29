@@ -355,45 +355,10 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
   const admins = JSON.parse(process.env.ADMINS);
   const bot = new Telegraf(process.env.BOT_TOKEN);
 
-  // admin commands
-  bot.command("daily", async (ctx: Context) => {
-    // TODO: add ability to choose the day range
-    if (ctx.message && admins.list.includes(ctx.message.from.id)) {
-      ctx.reply(
-        "Please choose the day:",
-        Markup.inlineKeyboard([
-          Markup.button.callback("Today", "daily 0"),
-          Markup.button.callback("Yesterday", "daily -1"),
-        ])
-      );
-    }
-  });
+  // start
+  bot.start(async (ctx: Context) => {
+    console.log(ctx.message?.from.id);
 
-  bot.command("all", async (ctx: Context) => {
-    if (ctx.message && admins.list.includes(ctx.message.from.id)) {
-      await handleAll(ctx);
-    }
-  });
-
-  // group commands
-  bot.command("status", async (ctx: Context) => {
-    const { kik_total, sik_total } = await getStats();
-    const fixed_kik = kik_total.toFixed(1);
-    const fixed_sik = sik_total.toFixed(1);
-
-    let statusText = `It seems to be even with ${fixed_kik}km for both guilds.`;
-
-    if (kik_total < sik_total) {
-      statusText = `JAPPADAIDA!1!\n\nSik has the lead with ${fixed_sik}km. Kik has some catching up to do with ${fixed_kik}km.`;
-    } else if (kik_total > sik_total) {
-      statusText = `Yy-Kaa-Kone!\n\nKik has the lead with ${fixed_kik}km. Sik has some cathing up to do with ${fixed_sik}km.`;
-    }
-
-    ctx.reply(statusText);
-  });
-
-  // personal commands
-  bot.command("start", async (ctx: Context) => {
     if (ctx.message && ctx.message.chat.type == "private") {
       const user_id = Number(ctx.message.from.id);
       const user = await getUser(user_id);
@@ -421,7 +386,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         });
 
         ctx.reply(
-          "Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nFor questions about the battle contact @taskisenantti @valtterireippainen @vointimestari @hennakaloriina or @jennimarttinen. If there are some technical problems with me, you can contact @Ojakoo.\n\nTo register Choose guild you are going to represent, after this just send me a picture to log your kilometers!",
+          "Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nFor questions about the battle contact TODO: or . If there are some technical problems with me, you can contact @Ojakoo.\n\nTo register Choose guild you are going to represent, after this just send me a picture to log your kilometers!",
           Markup.inlineKeyboard([
             Markup.button.callback("SIK", "guild SIK"),
             Markup.button.callback("KIK", "guild KIK"),
@@ -431,6 +396,48 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     }
   });
 
+  // admin commands
+  bot.command("daily", async (ctx: Context) => {
+    // TODO: add ability to choose the day range
+    if (ctx.message && admins.list.includes(ctx.message.from.id)) {
+      ctx.reply(
+        "Please choose the day:",
+        Markup.inlineKeyboard([
+          Markup.button.callback("Today", "daily 0"),
+          Markup.button.callback("Yesterday", "daily -1"),
+        ])
+      );
+    }
+  });
+
+  bot.command("all", async (ctx: Context) => {
+    console.log(ctx.message?.from.id);
+    console.log("list", admins.list);
+    console.log(admins.list.includes(ctx.message?.from.id));
+
+    if (ctx.message && admins.list.includes(ctx.message.from.id)) {
+      await handleAll(ctx);
+    }
+  });
+
+  // group commands
+  bot.command("status", async (ctx: Context) => {
+    const { kik_total, sik_total } = await getStats();
+    const fixed_kik = kik_total.toFixed(1);
+    const fixed_sik = sik_total.toFixed(1);
+
+    let statusText = `It seems to be even with ${fixed_kik}km for both guilds.`;
+
+    if (kik_total < sik_total) {
+      statusText = `JAPPADAIDA!1!\n\nSik has the lead with ${fixed_sik}km. Kik has some catching up to do with ${fixed_kik}km.`;
+    } else if (kik_total > sik_total) {
+      statusText = `Yy-Kaa-Kone!\n\nKik has the lead with ${fixed_kik}km. Sik has some cathing up to do with ${fixed_sik}km.`;
+    }
+
+    ctx.reply(statusText);
+  });
+
+  // personal commands
   bot.command("personal", async (ctx: Context) => {
     if (ctx.message && ctx.message.chat.type == "private") {
       const user_id = Number(ctx.message.from.id);
