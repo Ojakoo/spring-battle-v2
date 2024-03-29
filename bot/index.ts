@@ -11,6 +11,7 @@ import { ZodError, z } from "zod";
 
 // types
 type Guild = "SIK" | "KIK";
+
 enum Sport {
   running_walking = "Running/Walking",
   activity = "Activity",
@@ -23,7 +24,7 @@ interface ActiveLog {
   distance: number | null;
 }
 
-interface ActiveStart {
+interface User {
   user_id: number;
   user_name: string;
   guild: Guild | null;
@@ -185,22 +186,27 @@ async function insertLog({ user_id, sport, distance }: ActiveLog) {
   }
 }
 
-async function insertUser({ user_id, user_name, guild }: ActiveStart) {
+async function insertUser(user_id: number, user_name: string, guild?: Guild) {
   const user = await sql`
     INSERT INTO users
       (user_id, user_name, guild)
     VALUES
       (${user_id}, ${user_name}, ${guild})
-    RETURNING user_name, guild
+    RETURNING user_name
+    ON CONFLICT DO NOTHING
   `;
 
   return user;
 }
 
+async function setUserGuild(user_id: number, guild: Guild) {
+  await sql`UPDATE users SET guild = ${guild} WHERE user_id = ${user_id};`;
+}
+
 // bot logic
 
 let activeLogs: Array<ActiveLog> = [];
-let activeStarts: Array<ActiveStart> = [];
+// let activeStarts: Array<ActiveStart> = [];
 
 async function askSport(ctx: Context) {
   ctx.reply(
@@ -229,6 +235,7 @@ async function handleDaily(ctx: Context, day_modifier: number = 0) {
   );
 
   // Db stores data in gmt 0, transform local finnish time to match
+  // TODO: make dynamic this just adjusts based the db time to finnish time on fixed value
   const start_date_GMT = new Date(
     start_date.setHours(start_date.getHours() - 3)
   );
@@ -367,25 +374,14 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
       const message_base =
         "Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nIf you have any questions about the battle you can ask in the main group and the organizers will help you! If some technical problems appear with me, you can contact @Ojakoo.";
 
-      if (user[0]) {
+      if (user[0] && user[0].guild) {
         ctx.reply(message_base + `You are competing with ${user[0].guild}.`);
       } else {
         const user_name = ctx.message.from.last_name
           ? `${ctx.message.from.first_name} ${ctx.message.from.last_name}`
           : ctx.message.from.first_name;
 
-        if (activeStarts.some((item) => item.user_id === user_id)) {
-          var index = activeStarts.findIndex(
-            (item) => item.user_id === user_id
-          );
-          activeStarts.splice(index, 1);
-        }
-
-        activeStarts.push({
-          user_id: user_id,
-          user_name: user_name,
-          guild: null,
-        });
+        await insertUser(user_id, user_name);
 
         ctx.reply(
           message_base +
@@ -517,7 +513,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
       const user_id = Number(ctx.message.from.id);
       const user = await getUser(user_id);
 
-      if (user[0]) {
+      if (user[0] && user[0].guild) {
         if (activeLogs.some((item) => item.user_id === user_id)) {
           var index = activeLogs.findIndex((item) => item.user_id === user_id);
           activeLogs.splice(index, 1);
@@ -545,11 +541,8 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
     if (ctx.has(callbackQuery("data"))) {
       const user_id = Number(ctx.callbackQuery.from.id);
-      var activeLogIndex = activeLogs.findIndex(
-        (log) => log.user_id === user_id
-      );
 
-      var activeStartsIndex = activeStarts.findIndex(
+      var activeLogIndex = activeLogs.findIndex(
         (log) => log.user_id === user_id
       );
 
@@ -560,18 +553,19 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
       // stop logging if no active log found when user
       // uses /cancel and then answers the inlineKeyboard
-      if (activeStartsIndex != -1 && logType === "guild") {
-        try {
-          activeStarts[activeStartsIndex].guild = logData as Guild;
-          await insertUser(activeStarts[activeStartsIndex]);
-          activeStarts.splice(activeStartsIndex);
+      if (logType === "guild") {
+        const user = await getUser(user_id);
 
-          ctx.reply(
-            `Thanks! You chose ${logData} as your guild.\n\nTo start logging kilometers just send me a picture of your accomplishment!`
-          );
-        } catch (e) {
-          console.log(e);
+        if (!user) {
+          // Shouldnt be possible but we can just create user here also
+          // TODO: should return to set start?
         }
+
+        await setUserGuild(user_id, logData as Guild);
+
+        ctx.reply(
+          `Thanks! You chose ${logData} as your guild.\n\nTo start logging kilometers just send me a picture of your accomplishment!`
+        );
       } else if (activeLogIndex != -1 && logType === "sport") {
         // TODO: add error handling
         activeLogs[activeLogIndex].sport = logData as Sport;
@@ -587,9 +581,9 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     }
   });
 
+  // TODO: autocreate webhooks for prod
+  console.log("Starting bot");
   bot.launch();
-
-  console.log("running bot");
 
   // Enable graceful stop
   process.once("SIGINT", () => bot.stop("SIGINT"));
