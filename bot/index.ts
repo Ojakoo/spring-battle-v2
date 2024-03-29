@@ -360,16 +360,15 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
   // start
   bot.start(async (ctx: Context) => {
-    console.log(ctx.message?.from.id);
-
     if (ctx.message && ctx.message.chat.type == "private") {
       const user_id = Number(ctx.message.from.id);
       const user = await getUser(user_id);
 
+      const message_base =
+        "Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nIf you have any questions about the battle you can ask in the main group and the organizers will help you! If some technical problems appear with me, you can contact @Ojakoo.";
+
       if (user[0]) {
-        ctx.reply(
-          `Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nFor questions about the battle contact @taskisenantti @valtterireippainen @vointimestari @hennakaloriina or @jennimarttinen. If there are some technical problems with me, you can contact @Ojakoo.\n\nYou are competing with ${user[0].guild}`
-        );
+        ctx.reply(message_base + `You are competing with ${user[0].guild}.`);
       } else {
         const user_name = ctx.message.from.last_name
           ? `${ctx.message.from.first_name} ${ctx.message.from.last_name}`
@@ -389,7 +388,8 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         });
 
         ctx.reply(
-          "Hello there, welcome to the KIK-SIK Spring Battle!\n\nTo record kilometers for your guild send me a picture with some proof, showing atleast the exercise amount and route. This can be for example a screenshot of the Strava log. After this I'll ask a few questions recarding the exercise.\n\nIf you want to check the current status of the battle you can do so with /status, this command also works in the group chat! You can also check how many kilometers you have contributed with /personal.\n\nFor questions about the battle contact TODO: or . If there are some technical problems with me, you can contact @Ojakoo.\n\nTo register Choose guild you are going to represent, after this just send me a picture to log your kilometers!",
+          message_base +
+            "\n\nTo register Choose guild you are going to represent, after this just send me a picture to log your kilometers!",
           Markup.inlineKeyboard([
             Markup.button.callback("SIK", "guild SIK"),
             Markup.button.callback("KIK", "guild KIK"),
