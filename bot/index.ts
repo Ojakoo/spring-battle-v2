@@ -1,12 +1,10 @@
-require("dotenv").config();
+import "dotenv/config";
 
 import { Context, Telegraf, Markup } from "telegraf";
-import { Update } from "telegraf/typings/core/types/typegram";
+import type { Update } from "telegraf/types";
 import { callbackQuery, message } from "telegraf/filters";
 
-const postgres = require("postgres");
-import { PostgresError } from "postgres";
-
+import postgres, { PostgresError } from "postgres";
 import { ZodError, z } from "zod";
 
 // types
@@ -16,12 +14,6 @@ enum Sport {
   activity = "Activity",
   biking = "Biking",
   running_walking = "Running/Walking",
-}
-
-interface GuildStatReturn {
-  guild: Guild;
-  sum: number;
-  count: number;
 }
 
 interface SportStatReturn {
@@ -43,10 +35,10 @@ const sql = postgres({});
 
 // database access functions
 
-async function getStats(): Promise<
-  { guild: Guild; sport: Sport; sum: number }[]
-> {
-  return await sql`SELECT guild, sport, SUM(distance) FROM logs GROUP BY guild, sport`;
+async function getStats() {
+  return await sql<
+    { guild: Guild; sport: Sport; sum: number }[]
+  >`SELECT guild, sport, SUM(distance) FROM logs GROUP BY guild, sport`;
 }
 
 async function getUser(user_id: number) {
@@ -56,19 +48,18 @@ async function getUser(user_id: number) {
   return user;
 }
 
-async function getDistanceBySport(): Promise<SportStatReturn[]> {
-  return await sql`
+async function getDistanceBySport() {
+  return await sql<SportStatReturn[]>`
       SELECT guild, sport, SUM(distance) AS distance, COUNT(distance)::int AS entries
         FROM logs 
         GROUP BY guild, sport
       `;
 }
 
-async function getMyStats(
-  user_id: number
-): Promise<{ sum: number; sport: Sport }[]> {
-  const asd =
-    await sql`SELECT SUM(distance) as sum, sport FROM logs WHERE user_id = ${user_id} GROUP BY sport`;
+async function getMyStats(user_id: number) {
+  const asd = await sql<
+    { sum: number; sport: Sport }[]
+  >`SELECT SUM(distance) as sum, sport FROM logs WHERE user_id = ${user_id} GROUP BY sport`;
 
   return asd;
 }
@@ -78,7 +69,7 @@ async function getPersonalStatsByGuildAndDayRange(
   start_date: Date,
   limit_date: Date
 ) {
-  const stats: PersonStatReturn[] = await sql`
+  const stats = await sql<PersonStatReturn[]>`
     SELECT logs.user_id, users.user_name, SUM(distance) AS total_distance
     FROM logs JOIN users ON logs.user_id = users.user_id 
     WHERE logs.guild = ${guild} 
@@ -93,7 +84,7 @@ async function getPersonalStatsByGuildAndDayRange(
 }
 
 async function getPersonalStatsByGuild(guild: Guild) {
-  const stats: PersonStatReturn[] = await sql`
+  const stats = await sql<PersonStatReturn[]>`
     SELECT logs.user_id, users.user_name, SUM(distance) AS total_distance
     FROM logs JOIN users ON logs.user_id = users.user_id
     WHERE logs.guild = ${guild}
@@ -128,7 +119,7 @@ async function getLogEvent(user_id: number) {
 async function upsertLogEvent(user_id: number) {
   return await sql`
     INSERT INTO log_events 
-      (user_id) VALUES (${user_id}) 
+      (user_id) VALUES (${user_id})
     ON CONFLICT (user_id) DO UPDATE
       SET sport = NULL;
   `;
@@ -460,7 +451,16 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
   // TODO: autocreate webhooks for prod
   console.log("Starting bot");
 
-  bot.launch();
+  if (process.env.NODE_ENV === "production") {
+    bot.launch({
+      webhook: {
+        domain: process.env.NODE_ENV,
+        port: 3000, // TODO: set port with env?
+      },
+    });
+  } else {
+    bot.launch();
+  }
 
   // Enable graceful stop
   process.once("SIGINT", () => bot.stop("SIGINT"));

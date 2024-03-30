@@ -1,12 +1,26 @@
-FROM node:alpine3.16
+FROM node:alpine3.16 AS build
 
 WORKDIR /app
 
 COPY package.json .
 COPY package-lock.json .
 
-RUN npm ci 
+RUN npm ci
 
 COPY . .
 
-CMD [ "npm", "run", "start" ]
+RUN npm build
+RUN npm prune --production
+
+FROM node:alpine3.16
+
+WORKDIR /app
+
+COPY --from==build /build . 
+
+ENV NODE_ENV production
+
+USER node
+
+EXPOSE 3000
+CMD [ "node", "./index.js" ]
