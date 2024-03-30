@@ -20,6 +20,10 @@ COPY --from=build /app/package.json .
 COPY --from=build /app/package-lock.json .
 COPY --from=build /app/node_modules ./node_modules
 
+COPY --from=build /app/drizzle ./drizzle
+
+COPY ./prod-entrypoint.sh /usr/local/bin/
+
 RUN npm prune --production
 
 ENV NODE_ENV production
@@ -27,4 +31,5 @@ ENV NODE_ENV production
 USER node
 
 EXPOSE 3000
+ENTRYPOINT [ "prod-entrypoint.sh" ]
 CMD [ "node", "./index.js" ]

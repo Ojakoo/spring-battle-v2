@@ -31,7 +31,10 @@ interface PersonStatReturn {
 
 // connect to db
 
-const sql = postgres({});
+const sql = postgres(
+  process.env.POSTGRES_URL ||
+    "postgresql://username:password@springbattlebot-db:5432/database"
+);
 
 // database access functions
 
@@ -451,7 +454,8 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
   // TODO: autocreate webhooks for prod
   console.log("Starting bot");
 
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" && process.env.DOMAIN) {
+    console.log("Running webhook");
     bot.launch({
       webhook: {
         domain: process.env.DOMAIN,
@@ -459,6 +463,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
       },
     });
   } else {
+    console.log("Running in long poll mode");
     bot.launch();
   }
 
