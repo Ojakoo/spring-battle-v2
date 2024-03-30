@@ -9,14 +9,14 @@ RUN npm ci
 
 COPY . .
 
-RUN npm build
+RUN npm run build
 RUN npm prune --production
 
 FROM node:alpine3.16
 
 WORKDIR /app
 
-COPY --from==build /build . 
+COPY --from=build /app/build . 
 
 ENV NODE_ENV production
 
