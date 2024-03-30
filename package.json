@@ -1,0 +1,11 @@
+{
+  "name": "spring_battle_v2",
+  "version": "1.0.0",
+  "description": "Telegram bot for KIK and SIK annual spring battle",
+  "scripts": {
+    "dev": "docker compose up",
+    "install": "cd bot && npm run install"
+  },
+  "author": "Ilari Ojakorpi",
+  "license": "ISC"
+}
