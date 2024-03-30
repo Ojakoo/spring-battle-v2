@@ -454,7 +454,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
   if (process.env.NODE_ENV === "production") {
     bot.launch({
       webhook: {
-        domain: process.env.NODE_ENV,
+        domain: process.env.DOMAIN,
         port: 3000, // TODO: set port with env?
       },
     });
