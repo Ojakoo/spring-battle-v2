@@ -4,15 +4,15 @@ import { Context, Telegraf, Markup } from "telegraf";
 import type { Update } from "telegraf/types";
 import { callbackQuery, message } from "telegraf/filters";
 import postgres from "postgres";
-import { ZodError, number, z } from "zod";
+import { ZodError, z } from "zod";
 // TODO: unpacking postgres with the current build results in export not provided
 // for now resolved with using postgres.PostgreError
 // related: https://github.com/porsager/postgres/issues/684
 // import { PostgresError } from "postgres";
 
 import db from "./src/db/db.js";
-import { logs, users } from "./src/db/schema.js";
-import { sql, sum } from "drizzle-orm";
+import { logs, sport, users } from "./src/db/schema.js";
+import { sql, eq, sum } from "drizzle-orm";
 
 // types
 type Guild = "SIK" | "KIK";
@@ -45,7 +45,7 @@ const sql_pg = postgres(
 // database access functions
 
 async function getStats() {
-  return await db
+  const stats = await db
     .select({
       guild: logs.guild,
       sport: logs.sport,
@@ -53,6 +53,22 @@ async function getStats() {
     })
     .from(logs)
     .groupBy(logs.guild, logs.sport);
+
+  return Object.values(Sport).flatMap((sport) => {
+    const kik = stats.find((s) => s.sport === sport && s.guild === "KIK") || {
+      guild: "KIK",
+      sport,
+      sum: 0,
+    };
+
+    const sik = stats.find((s) => s.sport === sport && s.guild === "SIK") || {
+      guild: "SIK",
+      sport,
+      sum: 0,
+    };
+
+    return { sport, sik_sum: sik.sum.toFixed(1), kik_sum: kik.sum.toFixed(1) };
+  });
 }
 
 async function getUser(user_id: number) {
@@ -71,11 +87,23 @@ async function getDistanceBySport() {
 }
 
 async function getMyStats(user_id: number) {
-  const asd = await sql_pg<
-    { sum: number; sport: Sport }[]
-  >`SELECT SUM(distance) as sum, sport FROM logs WHERE id = ${user_id} GROUP BY sport`;
+  const stats = await db
+    .select({
+      sport: logs.sport,
+      sum: sql`sum(${logs.distance})`.mapWith(Number),
+    })
+    .from(logs)
+    .where(eq(logs.userId, user_id))
+    .groupBy(logs.sport);
 
-  return asd;
+  return Object.values(Sport).map((sport) => {
+    const sik = stats.find((s) => s.sport === sport) || {
+      sport,
+      sum: 0,
+    };
+
+    return { sport, sum: sik.sum.toFixed(1) };
+  });
 }
 
 async function getPersonalStatsByGuildAndDayRange(
@@ -303,31 +331,38 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
   // group commands
   bot.command("status", async (ctx: Context) => {
-    let message = "asd";
-
     const stats = await getStats();
 
-    Object.values(Sport).forEach((sport) => {
-      const kik = stats.find((s) => s.sport === sport && s.guild === "KIK");
-      const sik = stats.find((s) => s.sport === sport && s.guild === "SIK");
+    let sik_wins = 0;
+    let kik_wins = 0;
 
-      console.log(kik);
-      console.log(sik);
+    let message = "";
+
+    let kik_stats = "KIK:\n";
+    let sik_stats = "SIK:\n";
+
+    stats.forEach((s) => {
+      if (s.kik_sum !== s.sik_sum) {
+        if (s.kik_sum > s.sik_sum) {
+          kik_wins += 1;
+        } else {
+          sik_wins += 1;
+        }
+      }
+
+      kik_stats += ` - ${s.sport}: ${s.kik_sum}\n`;
+      sik_stats += ` - ${s.sport}: ${s.sik_sum}\n`;
     });
 
-    // let message = `
-    // ${ kik }
-    // `
+    if (kik_wins < sik_wins) {
+      message += `JAPPADAIDA! Sik has the lead by winning ${sik_wins} categories.\n\n`;
+    } else if (kik_wins > sik_wins) {
+      message = `Yy-Kaa-Kone! Kik has the lead by winning ${sik_wins} categories.\n\n`;
+    } else {
+      message += `It seems to be even with ${sik_wins} category wins for both guilds.\n\n`;
+    }
 
-    // let statusText = `It seems to be even with ${fixed_kik}km for both guilds.`;
-
-    // if (kik_total < sik_total) {
-    //   statusText = `JAPPADAIDA!1!\n\nSik has the lead with ${fixed_sik}km. Kik has some catching up to do with ${fixed_kik}km.`;
-    // } else if (kik_total > sik_total) {
-    //   statusText = `Yy-Kaa-Kone!\n\nKik has the lead with ${fixed_kik}km. Sik has some cathing up to do with ${fixed_sik}km.`;
-    // }
-
-    ctx.reply("asd");
+    ctx.reply(message + kik_stats + "\n" + sik_stats);
   });
 
   // personal commands
@@ -466,7 +501,6 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     }
   });
 
-  // TODO: autocreate webhooks for prod
   console.log("Starting bot");
 
   if (process.env.NODE_ENV === "production" && process.env.DOMAIN) {
@@ -478,6 +512,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
       },
     });
   } else {
+    // TODO: bot timeouts sometimes with the getMe req
     console.log("Running in long poll mode");
     bot.launch();
   }
