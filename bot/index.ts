@@ -67,7 +67,7 @@ async function getStats() {
       sum: 0,
     };
 
-    return { sport, sik_sum: sik.sum.toFixed(1), kik_sum: kik.sum.toFixed(1) };
+    return { sport, sik_sum: sik.sum, kik_sum: kik.sum };
   });
 }
 
@@ -352,8 +352,8 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         sik_wins += 1;
       }
 
-      kik_stats += ` - ${s.sport}: ${s.kik_sum}\n`;
-      sik_stats += ` - ${s.sport}: ${s.sik_sum}\n`;
+      kik_stats += ` - ${s.sport}: ${s.kik_sum.toFixed(1)}\n`;
+      sik_stats += ` - ${s.sport}: ${s.sik_sum.toFixed(1)}\n`;
     });
 
     if (kik_wins < sik_wins) {
