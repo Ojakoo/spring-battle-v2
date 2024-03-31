@@ -5,12 +5,11 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc --build ./tsconfig.json",
-    "dev": "nodemon --watch index.ts --exec node --loader ts-node/esm index.ts",
+    "dev": "nodemon --watch index.ts --exec tsx index.ts",
     "db:generate": "drizzle-kit generate:pg --config=./drizzle.config.ts",
     "db:push": "drizzle-kit push:pg --config=./drizzle.config.ts",
-    "db:migrate": "ts-node-esm ./src/db/migrate.ts"
+    "db:migrate": "tsx ./src/db/migrate.ts"
   },
   "author": "",
   "license": "ISC",
@@ -27,6 +26,7 @@
     "nodemon": "^3.1.0",
     "prettier": "^2.8.6",
     "ts-node": "^10.9.1",
+    "tsx": "^4.7.1",
     "typescript": "^5.0.2"
   }
 }
