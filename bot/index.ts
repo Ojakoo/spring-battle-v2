@@ -348,8 +348,8 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         sik_wins += 1;
       }
 
-      kik_stats += ` - ${s.sport}: ${s.kik_sum.toFixed(1)}\n`;
-      sik_stats += ` - ${s.sport}: ${s.sik_sum.toFixed(1)}\n`;
+      kik_stats += ` - ${s.sport}: ${s.kik_sum.toFixed(1)} km\n`;
+      sik_stats += ` - ${s.sport}: ${s.sik_sum.toFixed(1)} km\n`;
     });
 
     if (kik_wins < sik_wins) {
