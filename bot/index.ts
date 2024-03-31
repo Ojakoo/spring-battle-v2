@@ -342,12 +342,14 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     let sik_stats = "SIK:\n";
 
     stats.forEach((s) => {
-      if (s.kik_sum !== s.sik_sum) {
-        if (s.kik_sum > s.sik_sum) {
-          kik_wins += 1;
-        } else {
-          sik_wins += 1;
-        }
+      console.log(s);
+      console.log(sik_stats);
+      console.log(kik_stats);
+
+      if (s.kik_sum > s.sik_sum) {
+        kik_wins += 1;
+      } else if (s.kik_sum < s.sik_sum) {
+        sik_wins += 1;
       }
 
       kik_stats += ` - ${s.sport}: ${s.kik_sum}\n`;
@@ -357,7 +359,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     if (kik_wins < sik_wins) {
       message += `JAPPADAIDA! Sik has the lead by winning ${sik_wins} categories.\n\n`;
     } else if (kik_wins > sik_wins) {
-      message = `Yy-Kaa-Kone! Kik has the lead by winning ${sik_wins} categories.\n\n`;
+      message = `Yy-Kaa-Kone! Kik has the lead by winning ${kik_wins} categories.\n\n`;
     } else {
       message += `It seems to be even with ${sik_wins} category wins for both guilds.\n\n`;
     }
