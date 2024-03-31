@@ -3,13 +3,16 @@ import "dotenv/config";
 import { Context, Telegraf, Markup } from "telegraf";
 import type { Update } from "telegraf/types";
 import { callbackQuery, message } from "telegraf/filters";
-
 import postgres from "postgres";
-import { ZodError, z } from "zod";
+import { ZodError, number, z } from "zod";
 // TODO: unpacking postgres with the current build results in export not provided
 // for now resolved with using postgres.PostgreError
 // related: https://github.com/porsager/postgres/issues/684
 // import { PostgresError } from "postgres";
+
+import db from "./src/db/db.js";
+import { logs, users } from "./src/db/schema.js";
+import { sql, sum } from "drizzle-orm";
 
 // types
 type Guild = "SIK" | "KIK";
@@ -34,7 +37,7 @@ interface PersonStatReturn {
 }
 
 // connect to db
-const sql = postgres(
+const sql_pg = postgres(
   process.env.POSTGRES_URL ||
     "postgresql://username:password@springbattlebot-db:5432/database"
 );
@@ -42,20 +45,25 @@ const sql = postgres(
 // database access functions
 
 async function getStats() {
-  return await sql<
-    { guild: Guild; sport: Sport; sum: number }[]
-  >`SELECT guild, sport, SUM(distance) FROM logs GROUP BY guild, sport`;
+  return await db
+    .select({
+      guild: logs.guild,
+      sport: logs.sport,
+      sum: sql`sum(${logs.distance})`.mapWith(Number),
+    })
+    .from(logs)
+    .groupBy(logs.guild, logs.sport);
 }
 
 async function getUser(user_id: number) {
   const user =
-    await sql`SELECT user_name, guild FROM users WHERE id = ${user_id}`;
+    await sql_pg`SELECT user_name, guild FROM users WHERE id = ${user_id}`;
 
   return user;
 }
 
 async function getDistanceBySport() {
-  return await sql<SportStatReturn[]>`
+  return await sql_pg<SportStatReturn[]>`
       SELECT guild, sport, SUM(distance) AS distance, COUNT(distance)::int AS entries
         FROM logs 
         GROUP BY guild, sport
@@ -63,7 +71,7 @@ async function getDistanceBySport() {
 }
 
 async function getMyStats(user_id: number) {
-  const asd = await sql<
+  const asd = await sql_pg<
     { sum: number; sport: Sport }[]
   >`SELECT SUM(distance) as sum, sport FROM logs WHERE id = ${user_id} GROUP BY sport`;
 
@@ -75,7 +83,7 @@ async function getPersonalStatsByGuildAndDayRange(
   start_date: Date,
   limit_date: Date
 ) {
-  const stats = await sql<PersonStatReturn[]>`
+  const stats = await sql_pg<PersonStatReturn[]>`
     SELECT logs.user_id, users.user_name, SUM(distance) AS total_distance
     FROM logs JOIN users ON logs.user_id = users.id 
     WHERE logs.guild = ${guild} 
@@ -90,7 +98,7 @@ async function getPersonalStatsByGuildAndDayRange(
 }
 
 async function getPersonalStatsByGuild(guild: Guild) {
-  const stats = await sql<PersonStatReturn[]>`
+  const stats = await sql_pg<PersonStatReturn[]>`
     SELECT logs.user_id, users.user_name, SUM(distance) AS total_distance
     FROM logs JOIN users ON logs.user_id = users.id
     WHERE logs.guild = ${guild}
@@ -104,8 +112,8 @@ async function getPersonalStatsByGuild(guild: Guild) {
 
 async function insertLog(user_id: number, sport: Sport, distance: number) {
   if (user_id !== null && sport !== null && distance !== null) {
-    const user = await sql`SELECT guild FROM users WHERE id = ${user_id}`;
-    const log = await sql`
+    const user = await sql_pg`SELECT guild FROM users WHERE id = ${user_id}`;
+    const log = await sql_pg`
       INSERT INTO logs
         (user_id, guild, sport, distance)
       VALUES
@@ -117,13 +125,13 @@ async function insertLog(user_id: number, sport: Sport, distance: number) {
 
 async function getLogEvent(user_id: number) {
   const [log_event] =
-    await sql`SELECT * FROM log_events WHERE user_id = ${user_id}`;
+    await sql_pg`SELECT * FROM log_events WHERE user_id = ${user_id}`;
 
   return log_event;
 }
 
 async function upsertLogEvent(user_id: number) {
-  return await sql`
+  return await sql_pg`
     INSERT INTO log_events 
       (user_id) VALUES (${user_id})
     ON CONFLICT (user_id) DO UPDATE
@@ -132,15 +140,15 @@ async function upsertLogEvent(user_id: number) {
 }
 
 async function setLogEventSport(user_id: number, sport: Sport) {
-  return await sql`UPDATE log_events SET sport = ${sport} WHERE user_id = ${user_id} RETURNING user_id;`;
+  return await sql_pg`UPDATE log_events SET sport = ${sport} WHERE user_id = ${user_id} RETURNING user_id;`;
 }
 
 async function deleteLogEvent(user_id: number) {
-  return await sql`DELETE FROM log_events WHERE user_id = ${user_id}`;
+  return await sql_pg`DELETE FROM log_events WHERE user_id = ${user_id}`;
 }
 
 async function insertUser(user_id: number, user_name: string, guild?: Guild) {
-  return await sql`
+  return await sql_pg`
     INSERT INTO users
       (id, user_name, guild)
     VALUES
@@ -150,7 +158,7 @@ async function insertUser(user_id: number, user_name: string, guild?: Guild) {
 }
 
 async function setUserGuild(user_id: number, guild: Guild) {
-  await sql`UPDATE users SET guild = ${guild} WHERE id = ${user_id};`;
+  await sql_pg`UPDATE users SET guild = ${guild} WHERE id = ${user_id};`;
 }
 
 // bot logic
@@ -243,9 +251,6 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
   // start
   bot.start(async (ctx: Context) => {
-    console.log("asd");
-    console.log(process.env.POSTGRES_URL);
-
     if (ctx.message && ctx.message.chat.type == "private") {
       const user_id = Number(ctx.message.from.id);
       const user = await getUser(user_id);
@@ -298,17 +303,21 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
   // group commands
   bot.command("status", async (ctx: Context) => {
-    const stats = await getStats();
-
     let message = "asd";
 
-    let win_count_sik = 0;
-    let win_count_kik = 0;
+    const stats = await getStats();
 
     Object.values(Sport).forEach((sport) => {
       const kik = stats.find((s) => s.sport === sport && s.guild === "KIK");
       const sik = stats.find((s) => s.sport === sport && s.guild === "SIK");
+
+      console.log(kik);
+      console.log(sik);
     });
+
+    // let message = `
+    // ${ kik }
+    // `
 
     // let statusText = `It seems to be even with ${fixed_kik}km for both guilds.`;
 
@@ -318,7 +327,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     //   statusText = `Yy-Kaa-Kone!\n\nKik has the lead with ${fixed_kik}km. Sik has some cathing up to do with ${fixed_sik}km.`;
     // }
 
-    ctx.reply(message);
+    ctx.reply("asd");
   });
 
   // personal commands
