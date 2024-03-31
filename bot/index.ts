@@ -342,10 +342,6 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     let sik_stats = "SIK:\n";
 
     stats.forEach((s) => {
-      console.log(s);
-      console.log(sik_stats);
-      console.log(kik_stats);
-
       if (s.kik_sum > s.sik_sum) {
         kik_wins += 1;
       } else if (s.kik_sum < s.sik_sum) {
