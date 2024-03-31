@@ -7,7 +7,6 @@ services:
     image: bot
     volumes:
       - ./bot:/app
-      # - ./bot/node_modules:/app/node_modules
     ports:
       - "127.0.0.1:3000:3000"
     env_file:
@@ -18,15 +17,5 @@ services:
     image: postgres:14.1
     expose:
       - 5432
-    env_file:
-      - .env
-
-  flyway:
-    image: flyway/flyway:9.11.0-alpine
-    depends_on:
-      - database
-    volumes:
-      - ./flyway/sql/:/flyway/sql
-    command: -connectRetries=60 -baselineOnMigrate=true migrate
     env_file:
       - .env

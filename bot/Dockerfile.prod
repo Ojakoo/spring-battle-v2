@@ -1,9 +1,8 @@
-FROM node:alpine3.16 AS build
+FROM node:20-alpine3.18 AS build
 
 WORKDIR /app
 
-COPY package.json .
-COPY package-lock.json .
+COPY ./package.json ./package-lock.json .
 
 RUN npm ci
 
@@ -11,23 +10,24 @@ COPY . .
 
 RUN npm run build
 
-FROM node:alpine3.16
+FROM node:20-alpine3.18 AS production
+
+ENV NODE_ENV=production
 
 WORKDIR /app
 
-COPY --from=build /app/build .
-COPY --from=build /app/package.json .
-COPY --from=build /app/package-lock.json .
-COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/build /app
+COPY --from=build /app/node_modules /app/node_modules
+COPY --from=build /app/drizzle /app/drizzle
+COPY --from=build /app/package.json /app
+COPY --from=build /app/package-lock.json /app
 
-COPY --from=build /app/drizzle ./drizzle
+COPY ./prod-entrypoint.sh /usr/local/bin/
 
 RUN npm prune --production
-
-ENV NODE_ENV production
 
 USER node
 
 EXPOSE 3000
-# ENTRYPOINT [ "prod-entrypoint.sh" ]
-CMD [ "node", "index.js" ]
+ENTRYPOINT ["prod-entrypoint.sh"]
+CMD ["node", "index.js"]

@@ -10,8 +10,7 @@
     "dev": "nodemon --watch index.ts --exec ts-node index.ts",
     "db:generate": "drizzle-kit generate:pg --config=./drizzle.config.ts",
     "db:push": "drizzle-kit push:pg --config=./drizzle.config.ts",
-    "db:migrate": "node ./src/db/migrate.ts",
-    "db:seed": "node ./src/db/seed.ts"
+    "db:migrate": "ts-node ./src/db/migrate.ts"
   },
   "author": "",
   "license": "ISC",

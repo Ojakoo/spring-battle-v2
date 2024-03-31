@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-# TODO: this is janky is there a better way to respolve the path
-node ./migrate.js
+# TODO: this is jank but works
+cat ./src/db/migrate.js | node --input-type=module
 
 # Run command with node if the first argument contains a "-" or is not a system command. The last
 # part inside the "{}" is a workaround for the following bug in ash/dash:

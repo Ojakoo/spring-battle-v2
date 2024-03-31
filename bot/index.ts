@@ -4,8 +4,12 @@ import { Context, Telegraf, Markup } from "telegraf";
 import type { Update } from "telegraf/types";
 import { callbackQuery, message } from "telegraf/filters";
 
-import postgres, { PostgresError } from "postgres";
+import postgres from "postgres";
 import { ZodError, z } from "zod";
+// TODO: unpacking postgres with the current build results in export not provided
+// for now resolved with using postgres.PostgreError
+// related: https://github.com/porsager/postgres/issues/684
+// import { PostgresError } from "postgres";
 
 // types
 type Guild = "SIK" | "KIK";
@@ -24,13 +28,12 @@ interface SportStatReturn {
 }
 
 interface PersonStatReturn {
-  user_id: number;
+  id: number;
   user_name: string;
   total_distance: number;
 }
 
 // connect to db
-
 const sql = postgres(
   process.env.POSTGRES_URL ||
     "postgresql://username:password@springbattlebot-db:5432/database"
@@ -46,7 +49,7 @@ async function getStats() {
 
 async function getUser(user_id: number) {
   const user =
-    await sql`SELECT user_name, guild FROM users WHERE user_id = ${user_id}`;
+    await sql`SELECT user_name, guild FROM users WHERE id = ${user_id}`;
 
   return user;
 }
@@ -62,7 +65,7 @@ async function getDistanceBySport() {
 async function getMyStats(user_id: number) {
   const asd = await sql<
     { sum: number; sport: Sport }[]
-  >`SELECT SUM(distance) as sum, sport FROM logs WHERE user_id = ${user_id} GROUP BY sport`;
+  >`SELECT SUM(distance) as sum, sport FROM logs WHERE id = ${user_id} GROUP BY sport`;
 
   return asd;
 }
@@ -74,7 +77,7 @@ async function getPersonalStatsByGuildAndDayRange(
 ) {
   const stats = await sql<PersonStatReturn[]>`
     SELECT logs.user_id, users.user_name, SUM(distance) AS total_distance
-    FROM logs JOIN users ON logs.user_id = users.user_id 
+    FROM logs JOIN users ON logs.user_id = users.id 
     WHERE logs.guild = ${guild} 
       AND logs.created_at >= ${start_date.toISOString()} 
       AND logs.created_at < ${limit_date.toISOString()} 
@@ -89,7 +92,7 @@ async function getPersonalStatsByGuildAndDayRange(
 async function getPersonalStatsByGuild(guild: Guild) {
   const stats = await sql<PersonStatReturn[]>`
     SELECT logs.user_id, users.user_name, SUM(distance) AS total_distance
-    FROM logs JOIN users ON logs.user_id = users.user_id
+    FROM logs JOIN users ON logs.user_id = users.id
     WHERE logs.guild = ${guild}
     GROUP BY logs.user_id, users.user_name
     ORDER BY total_distance DESC
@@ -101,7 +104,7 @@ async function getPersonalStatsByGuild(guild: Guild) {
 
 async function insertLog(user_id: number, sport: Sport, distance: number) {
   if (user_id !== null && sport !== null && distance !== null) {
-    const user = await sql`SELECT guild FROM users WHERE user_id = ${user_id}`;
+    const user = await sql`SELECT guild FROM users WHERE id = ${user_id}`;
     const log = await sql`
       INSERT INTO logs
         (user_id, guild, sport, distance)
@@ -139,7 +142,7 @@ async function deleteLogEvent(user_id: number) {
 async function insertUser(user_id: number, user_name: string, guild?: Guild) {
   return await sql`
     INSERT INTO users
-      (user_id, user_name, guild)
+      (id, user_name, guild)
     VALUES
       (${user_id}, ${user_name}, ${guild || null})
     ON CONFLICT DO NOTHING;
@@ -147,7 +150,7 @@ async function insertUser(user_id: number, user_name: string, guild?: Guild) {
 }
 
 async function setUserGuild(user_id: number, guild: Guild) {
-  await sql`UPDATE users SET guild = ${guild} WHERE user_id = ${user_id};`;
+  await sql`UPDATE users SET guild = ${guild} WHERE id = ${user_id};`;
 }
 
 // bot logic
@@ -240,6 +243,9 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
   // start
   bot.start(async (ctx: Context) => {
+    console.log("asd");
+    console.log(process.env.POSTGRES_URL);
+
     if (ctx.message && ctx.message.chat.type == "private") {
       const user_id = Number(ctx.message.from.id);
       const user = await getUser(user_id);
@@ -364,7 +370,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
           ctx.reply("Thanks for participating!");
         } catch (e) {
-          if (e instanceof PostgresError) {
+          if (e instanceof postgres.PostgresError) {
             console.log(e);
             ctx.reply(
               "Encountered an error with logging data please contact @Ojakoo"

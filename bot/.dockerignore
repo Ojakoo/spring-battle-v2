@@ -1,0 +1,6 @@
+Dockerfile
+Dockerfile.prod
+.env
+.env.sample
+node_modules
+/build/**/*
