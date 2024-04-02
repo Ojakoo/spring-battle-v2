@@ -12,6 +12,8 @@ const migrationClient = postgres(
 );
 await migrate(drizzle(migrationClient), { migrationsFolder: "./drizzle" });
 
+migrationClient.end();
+
 console.log("Migration successful");
 
 process.exit();
