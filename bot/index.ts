@@ -157,6 +157,9 @@ async function getPersonalStatsByGuildAndDayRange(
     .orderBy(desc(sql<number>`sum(${logs.distance})`)) // TODO: can I get this from the select somehow?
     .limit(limit);
 
+  console.log(new Date());
+  console.log(start_date);
+  console.log(limit_date);
   return topX;
 }
 
@@ -393,8 +396,6 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
   // group commands
   bot.command("status", async (ctx: Context) => {
-    console.log(ctx.chat?.id);
-
     const stats = await getStats();
 
     let sik_wins = 0;
