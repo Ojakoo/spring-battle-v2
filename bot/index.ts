@@ -11,8 +11,8 @@ import { ZodError, z } from "zod";
 // import { PostgresError } from "postgres";
 
 import db from "./src/db/db.js";
-import { logs, sport, users } from "./src/db/schema.js";
-import { sql, eq, sum } from "drizzle-orm";
+import { logs, users } from "./src/db/schema.js";
+import { and, sql, eq, between, desc } from "drizzle-orm";
 
 // types
 type Guild = "SIK" | "KIK";
@@ -71,6 +71,34 @@ async function getStats() {
   });
 }
 
+async function getStatsByDate(start_date: Date, limit_date: Date) {
+  const stats = await db
+    .select({
+      guild: logs.guild,
+      sport: logs.sport,
+      sum: sql`sum(${logs.distance})`.mapWith(Number),
+    })
+    .from(logs)
+    .where(between(logs.createdAt, start_date, limit_date))
+    .groupBy(logs.guild, logs.sport);
+
+  return Object.values(Sport).flatMap((sport) => {
+    const kik = stats.find((s) => s.sport === sport && s.guild === "KIK") || {
+      guild: "KIK",
+      sport,
+      sum: 0,
+    };
+
+    const sik = stats.find((s) => s.sport === sport && s.guild === "SIK") || {
+      guild: "SIK",
+      sport,
+      sum: 0,
+    };
+
+    return { sport, sik_sum: sik.sum, kik_sum: kik.sum };
+  });
+}
+
 async function getUser(user_id: number) {
   const user =
     await sql_pg`SELECT user_name, guild FROM users WHERE id = ${user_id}`;
@@ -109,20 +137,27 @@ async function getMyStats(user_id: number) {
 async function getPersonalStatsByGuildAndDayRange(
   guild: Guild,
   start_date: Date,
-  limit_date: Date
+  limit_date: Date,
+  limit: number
 ) {
-  const stats = await sql_pg<PersonStatReturn[]>`
-    SELECT logs.user_id, users.user_name, SUM(distance) AS total_distance
-    FROM logs JOIN users ON logs.user_id = users.id 
-    WHERE logs.guild = ${guild} 
-      AND logs.created_at >= ${start_date.toISOString()} 
-      AND logs.created_at < ${limit_date.toISOString()} 
-    GROUP BY logs.user_id, users.user_name
-    ORDER BY total_distance DESC
-    LIMIT 10
-  `;
+  const topX = await db
+    .select({
+      userName: users.userName,
+      totalDistance: sql<number>`sum(${logs.distance})`,
+    })
+    .from(logs)
+    .fullJoin(users, eq(logs.userId, users.id))
+    .where(
+      and(
+        eq(logs.guild, guild),
+        between(logs.createdAt, start_date, limit_date)
+      )
+    )
+    .groupBy(users.userName, users.id)
+    .orderBy(desc(sql<number>`sum(${logs.distance})`)) // TODO: can I get this from the select somehow?
+    .limit(limit);
 
-  return stats;
+  return topX;
 }
 
 async function getPersonalStatsByGuild(guild: Guild) {
@@ -217,24 +252,47 @@ async function handleDaily(ctx: Context, day_modifier: number = 0) {
     ).toDateString()
   );
 
-  // Db stores data in gmt 0, transform local finnish time to match
-  // TODO: make dynamic this just adjusts based the db time to finnish time on fixed value
-  const start_date_GMT = new Date(start_date.setHours(start_date.getHours()));
-  const limit_date_GMT = new Date(limit_date.setHours(limit_date.getHours()));
+  let message = "Daily stats\n\n";
+
+  const dailyStats = await getStatsByDate(start_date, limit_date);
+
+  let kik_stats = "KIK:\n";
+  let sik_stats = "SIK:\n";
+
+  dailyStats.forEach((s) => {
+    kik_stats += ` - ${s.sport}: ${s.kik_sum.toFixed(1)} km\n`;
+    sik_stats += ` - ${s.sport}: ${s.sik_sum.toFixed(1)} km\n`;
+  });
+
+  message += kik_stats + "\n" + sik_stats;
 
   const kik_personals = await getPersonalStatsByGuildAndDayRange(
     "KIK",
-    start_date_GMT,
-    limit_date_GMT
+    start_date,
+    limit_date,
+    10
   );
 
   const sik_personals = await getPersonalStatsByGuildAndDayRange(
     "SIK",
-    start_date_GMT,
-    limit_date_GMT
+    start_date,
+    limit_date,
+    10
   );
 
-  ctx.reply("asd");
+  message += "\nKIK top 10\n";
+
+  for (const [index, user] of kik_personals.entries()) {
+    message += `  ${index + 1}. ${user.userName}: ${user.totalDistance} km\n`;
+  }
+
+  message += "\nSIK top 10\n";
+
+  for (const [index, user] of sik_personals.entries()) {
+    message += `  ${index + 1}. ${user.userName}: ${user.totalDistance} km\n`;
+  }
+
+  ctx.reply(message);
 }
 
 async function handleAll(ctx: Context) {
@@ -348,8 +406,12 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
         sik_wins += 1;
       }
 
-      kik_stats += ` - ${s.sport}: ${s.kik_sum.toFixed(1)} km\n`;
-      sik_stats += ` - ${s.sport}: ${s.sik_sum.toFixed(1)} km\n`;
+      kik_stats += ` - ${s.sport}: ${s.kik_sum.toFixed(1)} km${
+        s.kik_sum > s.sik_sum ? " 🏆" : ""
+      }\n`;
+      sik_stats += ` - ${s.sport}: ${s.sik_sum.toFixed(1)} km${
+        s.kik_sum < s.sik_sum ? " 🏆" : ""
+      }\n`;
     });
 
     if (kik_wins < sik_wins) {
@@ -510,7 +572,8 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
       },
     });
   } else {
-    // TODO: bot timeouts sometimes with the getMe req
+    // TODO: bot timeouts sometimes with the getMe req, dosen't seem to be an issue with
+    // webhooks, maybe netework related?
     console.log("Running in long poll mode");
     bot.launch();
   }

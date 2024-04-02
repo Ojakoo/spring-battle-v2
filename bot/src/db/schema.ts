@@ -28,7 +28,7 @@ export const logs = pgTable(
       .references(() => users.id, {
         onDelete: "cascade",
       }),
-    guild: guild("guild").notNull(),
+    guild: guild("guild").notNull(), // this is cached here just so i dont need to do any joins on status query
     sport: sport("sport").notNull(),
     distance: real("distance").notNull(),
   },
