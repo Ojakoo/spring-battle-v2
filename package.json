@@ -4,10 +4,11 @@
   "description": "Telegram bot for KIK and SIK annual spring battle",
   "scripts": {
     "dev": "docker compose up",
-    "install": "cd bot && npm run install",
+    "install": "cd bot && npm install",
     "db:generate": "cd bot && npm run db:generate",
     "db:push": "cd bot && npm run db:generate",
-    "db:migrate": "docker exec springbattlebot-bot npm run db:migrate"
+    "db:migrate": "docker exec springbattlebot-bot npm run db:migrate",
+    "db:seed": "docker exec springbattlebot-bot npm run db:seed"
   },
   "author": "Ilari Ojakorpi",
   "license": "ISC"
