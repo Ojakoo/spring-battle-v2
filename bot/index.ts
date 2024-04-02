@@ -393,6 +393,8 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
   // group commands
   bot.command("status", async (ctx: Context) => {
+    console.log(ctx.chat?.id);
+
     const stats = await getStats();
 
     let sik_wins = 0;
