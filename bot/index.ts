@@ -252,7 +252,7 @@ async function handleDaily(ctx: Context, day_modifier: number = 0) {
     ).toDateString()
   );
 
-  let message = "Daily stats\n\n";
+  let message = `Daily stats for ${start_date.toDateString()}\n\n`;
 
   const dailyStats = await getStatsByDate(start_date, limit_date);
 
