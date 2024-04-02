@@ -283,13 +283,17 @@ async function handleDaily(ctx: Context, day_modifier: number = 0) {
   message += "\nKIK top 10\n";
 
   for (const [index, user] of kik_personals.entries()) {
-    message += `  ${index + 1}. ${user.userName}: ${user.totalDistance} km\n`;
+    message += `  ${index + 1}. ${user.userName}: ${user.totalDistance.toFixed(
+      1
+    )} km\n`;
   }
 
   message += "\nSIK top 10\n";
 
   for (const [index, user] of sik_personals.entries()) {
-    message += `  ${index + 1}. ${user.userName}: ${user.totalDistance} km\n`;
+    message += `  ${index + 1}. ${user.userName}: ${user.totalDistance.toFixed(
+      1
+    )} km\n`;
   }
 
   ctx.reply(message);
