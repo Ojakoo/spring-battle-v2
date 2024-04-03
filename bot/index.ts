@@ -134,11 +134,11 @@ async function getMyStats(user_id: number) {
   });
 }
 
-async function getPersonalStatsByGuildAndDayRange(
+async function getTop(
   guild: Guild,
-  start_date: Date,
-  limit_date: Date,
-  limit: number
+  limit: number,
+  start_date?: Date,
+  limit_date?: Date
 ) {
   const topX = await db
     .select({
@@ -148,32 +148,18 @@ async function getPersonalStatsByGuildAndDayRange(
     .from(logs)
     .fullJoin(users, eq(logs.userId, users.id))
     .where(
-      and(
-        eq(logs.guild, guild),
-        between(logs.createdAt, start_date, limit_date)
-      )
+      !start_date || !limit_date
+        ? eq(logs.guild, guild)
+        : and(
+            eq(logs.guild, guild),
+            between(logs.createdAt, start_date, limit_date)
+          )
     )
     .groupBy(users.userName, users.id)
     .orderBy(desc(sql<number>`sum(${logs.distance})`)) // TODO: can I get this from the select somehow?
     .limit(limit);
 
-  console.log(new Date());
-  console.log(start_date);
-  console.log(limit_date);
   return topX;
-}
-
-async function getPersonalStatsByGuild(guild: Guild) {
-  const stats = await sql_pg<PersonStatReturn[]>`
-    SELECT logs.user_id, users.user_name, SUM(distance) AS total_distance
-    FROM logs JOIN users ON logs.user_id = users.id
-    WHERE logs.guild = ${guild}
-    GROUP BY logs.user_id, users.user_name
-    ORDER BY total_distance DESC
-    LIMIT 5
-  `;
-
-  return stats;
 }
 
 async function insertLog(user_id: number, sport: Sport, distance: number) {
@@ -243,8 +229,9 @@ async function askSport(ctx: Context) {
   );
 }
 
-async function handleDaily(ctx: Context, day_modifier: number = 0) {
-  const today = new Date(new Date().toDateString());
+async function getDailyMessage(day_modifier: number = 0) {
+  const dailyTopLength = 5;
+  const today = new Date(new Date().setHours(new Date().getHours() + 3));
 
   const start_date = new Date(
     new Date(new Date().setDate(today.getDate() + day_modifier)).toDateString()
@@ -255,7 +242,9 @@ async function handleDaily(ctx: Context, day_modifier: number = 0) {
     ).toDateString()
   );
 
-  let message = `Daily stats for ${start_date.toDateString()}\n\n`;
+  start_date.setHours(start_date.getHours() + 3);
+
+  let message = `Daily stats for ${start_date.toLocaleDateString("FI")}\n\n`;
 
   const dailyStats = await getStatsByDate(start_date, limit_date);
 
@@ -269,35 +258,43 @@ async function handleDaily(ctx: Context, day_modifier: number = 0) {
 
   message += kik_stats + "\n" + sik_stats;
 
-  const kik_personals = await getPersonalStatsByGuildAndDayRange(
+  // Get daily top and format
+
+  const kikDailyTop = await getTop(
     "KIK",
+    dailyTopLength,
     start_date,
-    limit_date,
-    10
+    limit_date
   );
 
-  const sik_personals = await getPersonalStatsByGuildAndDayRange(
+  const sikDailyTop = await getTop(
     "SIK",
+    dailyTopLength,
     start_date,
-    limit_date,
-    10
+    limit_date
   );
 
-  message += "\nKIK top 10\n";
+  message += `\nKIK top ${dailyTopLength}\n`;
 
-  for (const [index, user] of kik_personals.entries()) {
+  for (const [index, user] of kikDailyTop.entries()) {
     message += `  ${index + 1}. ${user.userName}: ${user.totalDistance.toFixed(
       1
     )} km\n`;
   }
 
-  message += "\nSIK top 10\n";
+  message += `\nSIK top ${dailyTopLength}\n`;
 
-  for (const [index, user] of sik_personals.entries()) {
+  for (const [index, user] of sikDailyTop.entries()) {
     message += `  ${index + 1}. ${user.userName}: ${user.totalDistance.toFixed(
       1
     )} km\n`;
   }
+
+  return message;
+}
+
+async function handleDaily(ctx: Context, day_modifier: number = 0) {
+  const message = await getDailyMessage(day_modifier);
 
   ctx.reply(message);
 }
@@ -322,17 +319,17 @@ async function handleAll(ctx: Context) {
     })
   );
 
-  const kik_personals = await getPersonalStatsByGuild("KIK");
-  const sik_personals = await getPersonalStatsByGuild("SIK");
+  const kik_personals = await getTop("KIK", 5);
+  const sik_personals = await getTop("SIK", 5);
 
   kik_personals.forEach(
-    (p, i) => (message += `${i + 1}. ${p.user_name}: ${p.total_distance} km\n`)
+    (p, i) => (message += `${i + 1}. ${p.userName}: ${p.totalDistance} km\n`)
   );
 
   message += "\n";
 
   sik_personals.forEach(
-    (p, i) => (message += `${i + 1}. ${p.user_name}: ${p.total_distance} km\n`)
+    (p, i) => (message += `${i + 1}. ${p.userName}: ${p.totalDistance} km\n`)
   );
 
   ctx.reply(message);
