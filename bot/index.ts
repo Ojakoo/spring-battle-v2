@@ -303,6 +303,7 @@ async function handleDaily(ctx: Context, day_modifier: number = 0) {
 async function handleAll(ctx: Context) {
   const sports = await getDistanceBySport();
 
+  // TODO: rename messages to text or replyText due to telegraf message filter method
   let message = "";
 
   ["SIK", "KIK"].forEach((guild) =>
@@ -392,34 +393,6 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     }
   });
 
-  // bot.command("push1", async (ctx: Context) => {
-  //   const cronId = process.env.CRON_GROUP_ID;
-
-  //   if (ctx.message && admins.list.includes(ctx.message.from.id) && cronId) {
-  //     try {
-  //       const message = await getDailyMessage(-1);
-
-  //       bot.telegram.sendMessage(cronId, message);
-  //     } catch (e) {
-  //       console.log(e);
-  //     }
-  //   }
-  // });
-
-  // bot.command("push2", async (ctx: Context) => {
-  //   const cronId = process.env.CRON_GROUP_ID;
-
-  //   if (ctx.message && admins.list.includes(ctx.message.from.id) && cronId) {
-  //     try {
-  //       const message = await getDailyMessage(-2);
-
-  //       bot.telegram.sendMessage(cronId, message);
-  //     } catch (e) {
-  //       console.log(e);
-  //     }
-  //   }
-  // });
-
   // group commands
   bot.command("status", async (ctx: Context) => {
     const stats = await getStats();
@@ -484,7 +457,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
   });
 
   // text handler
-  bot.on("text", async (ctx: Context) => {
+  bot.on(message("text"), async (ctx: Context) => {
     // check the data for active log and
     if (ctx.has(message("text"))) {
       const user_id = Number(ctx.message.from.id);
@@ -526,7 +499,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     }
   });
 
-  bot.on("photo", async (ctx: Context) => {
+  bot.on(message("photo"), async (ctx: Context) => {
     if (ctx.message && ctx.message.chat.type === "private") {
       const user_id = Number(ctx.message.from.id);
       const user = await getUser(user_id);
