@@ -392,33 +392,33 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     }
   });
 
-  bot.command("push1", async (ctx: Context) => {
-    const cronId = process.env.CRON_GROUP_ID;
+  // bot.command("push1", async (ctx: Context) => {
+  //   const cronId = process.env.CRON_GROUP_ID;
 
-    if (ctx.message && admins.list.includes(ctx.message.from.id) && cronId) {
-      try {
-        const message = await getDailyMessage(-1);
+  //   if (ctx.message && admins.list.includes(ctx.message.from.id) && cronId) {
+  //     try {
+  //       const message = await getDailyMessage(-1);
 
-        bot.telegram.sendMessage(cronId, message);
-      } catch (e) {
-        console.log(e);
-      }
-    }
-  });
+  //       bot.telegram.sendMessage(cronId, message);
+  //     } catch (e) {
+  //       console.log(e);
+  //     }
+  //   }
+  // });
 
-  bot.command("push2", async (ctx: Context) => {
-    const cronId = process.env.CRON_GROUP_ID;
+  // bot.command("push2", async (ctx: Context) => {
+  //   const cronId = process.env.CRON_GROUP_ID;
 
-    if (ctx.message && admins.list.includes(ctx.message.from.id) && cronId) {
-      try {
-        const message = await getDailyMessage(-2);
+  //   if (ctx.message && admins.list.includes(ctx.message.from.id) && cronId) {
+  //     try {
+  //       const message = await getDailyMessage(-2);
 
-        bot.telegram.sendMessage(cronId, message);
-      } catch (e) {
-        console.log(e);
-      }
-    }
-  });
+  //       bot.telegram.sendMessage(cronId, message);
+  //     } catch (e) {
+  //       console.log(e);
+  //     }
+  //   }
+  // });
 
   // group commands
   bot.command("status", async (ctx: Context) => {
