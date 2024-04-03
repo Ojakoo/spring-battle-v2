@@ -5,6 +5,7 @@ import type { Update } from "telegraf/types";
 import { callbackQuery, message } from "telegraf/filters";
 import postgres from "postgres";
 import { ZodError, z } from "zod";
+import cron from "node-cron";
 // TODO: unpacking postgres with the current build results in export not provided
 // for now resolved with using postgres.PostgreError
 // related: https://github.com/porsager/postgres/issues/684
@@ -569,6 +570,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
   if (process.env.NODE_ENV === "production" && process.env.DOMAIN) {
     console.log("Running webhook");
+
     bot.launch({
       webhook: {
         domain: process.env.DOMAIN,
@@ -579,7 +581,28 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     // TODO: bot timeouts sometimes with the getMe req, dosen't seem to be an issue with
     // webhooks, maybe netework related?
     console.log("Running in long poll mode");
+
     bot.launch();
+  }
+
+  // Create cron job for automated messages
+  // for prod on midnight on dev every minute
+
+  const cronId = process.env.CRON_GROUP_ID;
+
+  if (cronId) {
+    cron.schedule(
+      process.env.NODE_ENV === "production" ? "0 1 * * *" : "* * * * *",
+      async () => {
+        const message = await getDailyMessage(-1);
+
+        bot.telegram.sendMessage(cronId, message);
+      },
+      {
+        scheduled: true,
+        timezone: "Europe/Helsinki",
+      }
+    );
   }
 
   // Enable graceful stop
