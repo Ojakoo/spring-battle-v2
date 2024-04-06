@@ -1,22 +1,30 @@
-Expose localhost port to outside on dev:
+# Spring Battle Bot
+
+Telegram bot used for the annual SIK-KIK spring battle.
+
+## Development
+
+Run the bot with:
 
 ```
-http ngrok 3000
+npm run dev
 ```
 
-Connect telegram webhook:
+Run migrations and seed the db with (while dev is running):
 
 ```
-https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={DEPLOY_URL}
+npm run db:migrate
+npm run db:seed
 ```
 
-Runnig the application:
+To create new migartions on changes to the db schema use
 
 ```
-sudo docker compose up --build
+npm run db:generate
 ```
 
-TODO: using ts-node withnode 20 break stack traces due to --loader, alternaticely could use tsx but this doesnt have type checking
+TODO: [Using ts-node with node 20](https://github.com/TypeStrong/ts-node/issues/1997) breaks stack traces due to --loader, now uses tsx but this doesnt have type checking. Working ts node run should be:
+
+```
 "dev": "nodemon --watch index.ts --exec node --loader ts-node/esm index.ts",
-
-https://github.com/TypeStrong/ts-node/issues/1997
+```
