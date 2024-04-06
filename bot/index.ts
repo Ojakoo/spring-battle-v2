@@ -12,7 +12,7 @@ import cron from "node-cron";
 // import { PostgresError } from "postgres";
 
 import db from "./src/db/db.js";
-import { logs, users } from "./src/db/schema.js";
+import { log_events, logs, users } from "./src/db/schema.js";
 import { and, sql, eq, between, desc } from "drizzle-orm";
 
 // types
@@ -31,12 +31,6 @@ interface SportStatReturn {
   sport: Sport;
 }
 
-interface PersonStatReturn {
-  id: number;
-  user_name: string;
-  total_distance: number;
-}
-
 // connect to db
 const sql_pg = postgres(
   process.env.POSTGRES_URL ||
@@ -44,6 +38,11 @@ const sql_pg = postgres(
 );
 
 // database access functions
+
+async function changeGuild(userId: number, guild: Guild) {
+  await db.update(users).set({ guild: guild }).where(eq(users.id, userId));
+  await db.update(logs).set({ guild: guild }).where(eq(logs.userId, userId));
+}
 
 async function getStats() {
   const stats = await db
@@ -165,20 +164,26 @@ async function getTop(
 
 async function insertLog(user_id: number, sport: Sport, distance: number) {
   if (user_id !== null && sport !== null && distance !== null) {
-    const user = await sql_pg`SELECT guild FROM users WHERE id = ${user_id}`;
-    const log = await sql_pg`
-      INSERT INTO logs
-        (user_id, guild, sport, distance)
-      VALUES
-        (${user_id}, ${user[0].guild}, ${sport}, ${distance})
-      RETURNING sport, distance
-    `;
+    const [user] = await db.select().from(users).where(eq(users.id, user_id));
+
+    if (!user.guild) {
+      return;
+    }
+
+    await db.insert(logs).values({
+      userId: user_id,
+      guild: user.guild,
+      sport: sport,
+      distance: distance,
+    });
   }
 }
 
 async function getLogEvent(user_id: number) {
-  const [log_event] =
-    await sql_pg`SELECT * FROM log_events WHERE user_id = ${user_id}`;
+  const [log_event] = await db
+    .select()
+    .from(log_events)
+    .where(eq(log_events.user_id, user_id));
 
   return log_event;
 }
@@ -193,7 +198,11 @@ async function upsertLogEvent(user_id: number) {
 }
 
 async function setLogEventSport(user_id: number, sport: Sport) {
-  return await sql_pg`UPDATE log_events SET sport = ${sport} WHERE user_id = ${user_id} RETURNING user_id;`;
+  return await db
+    .update(log_events)
+    .set({ sport })
+    .where(eq(log_events.user_id, user_id))
+    .returning();
 }
 
 async function deleteLogEvent(user_id: number) {
@@ -446,6 +455,18 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
     }
   });
 
+  bot.command("reset_guild", (ctx: Context) => {
+    if (ctx.message && ctx.message.chat.type === "private") {
+      ctx.reply(
+        "Choose guild",
+        Markup.inlineKeyboard([
+          Markup.button.callback("SIK", "reset_guild SIK"),
+          Markup.button.callback("KIK", "reset_guild KIK"),
+        ])
+      );
+    }
+  });
+
   bot.command("cancel", (ctx: Context) => {
     if (ctx.has(message("text"))) {
       const user_id = Number(ctx.message.from.id);
@@ -472,7 +493,7 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
           await insertLog(
             log_event.user_id,
-            log_event.sport,
+            log_event.sport as Sport,
             log_event.sport === Sport.activity ? distance * 0.0007 : distance
           );
 
@@ -534,35 +555,43 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
       // stop logging if no active log found when user
       // uses /cancel and then answers the inlineKeyboard
-      if (logType === "guild") {
-        const user = await getUser(user_id);
+      switch (logType) {
+        case "guild":
+          const user = await getUser(user_id);
 
-        if (!user) {
-          // Shouldnt be possible but we can just create user here also
-          // TODO: should return to set start?
-        }
+          if (!user) {
+            // Shouldnt be possible but we can just create user here also
+            // TODO: should return to set start?
+          }
 
-        await setUserGuild(user_id, logData as Guild);
+          await setUserGuild(user_id, logData as Guild);
 
-        ctx.reply(
-          `Thanks! You chose ${logData} as your guild.\n\nTo start logging kilometers just send me a picture of your accomplishment!`
-        );
-      } else if (logType === "sport") {
-        const log_event = await setLogEventSport(user_id, logData as Sport);
+          ctx.reply(
+            `Thanks! You chose ${logData} as your guild.\n\nTo start logging kilometers just send me a picture of your accomplishment!`
+          );
+          break;
+        case "reset_guild":
+          await changeGuild(user_id, logData as Guild);
 
-        if (log_event.length === 0) {
-          ctx.reply("Something went wrong please try again.");
+          ctx.reply(`Your guild is now set to ${logData}.`);
+          break;
+        case "sport":
+          const log_event = await setLogEventSport(user_id, logData as Sport);
 
-          return;
-        }
+          if (log_event.length === 0) {
+            ctx.reply("Something went wrong please try again.");
+            break;
+          }
 
-        ctx.reply(
-          logData === Sport.activity
-            ? "Type the number of steps that you have walked. These are converted to kilometers automatically"
-            : "Type the number of kilometers using '.' as a separator, for example: 5.5"
-        );
-      } else if (logType === "daily") {
-        await handleDaily(ctx, Number(logData));
+          ctx.reply(
+            logData === Sport.activity
+              ? "Type the number of steps that you have walked. These are converted to kilometers automatically"
+              : "Type the number of kilometers using '.' as a separator, for example: 5.5"
+          );
+          break;
+        case "daily":
+          await handleDaily(ctx, Number(logData));
+          break;
       }
     }
   });
@@ -579,8 +608,6 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
       },
     });
   } else {
-    // TODO: bot timeouts sometimes with the getMe req, dosen't seem to be an issue with
-    // webhooks, maybe netework related?
     console.log("Running in long poll mode");
 
     bot.launch();
