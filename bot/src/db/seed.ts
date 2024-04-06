@@ -64,7 +64,7 @@ const userValues = [
   },
 ];
 
-await db.insert(users).values(userValues);
+await db.insert(users).values(userValues).onConflictDoNothing();
 
 const logValues = [
   {
@@ -129,4 +129,6 @@ const logValues = [
   },
 ];
 
-await db.insert(logs).values(logValues);
+await db.insert(logs).values(logValues).onConflictDoNothing();
+
+process.exit();
