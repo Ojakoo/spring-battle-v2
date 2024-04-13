@@ -135,6 +135,42 @@ async function getMyStats(user_id: number) {
   });
 }
 
+async function getMyDaily(user_id: number, ) {
+  const today = new Date(new Date().setHours(new Date().getHours() + 3));
+
+  const start_date = new Date(
+    new Date(new Date().setDate(today.getDate())).toDateString()
+  );
+  const limit_date = new Date(
+    new Date(
+      new Date().setDate(today.getDate() + 1)
+    ).toDateString()
+  );
+
+  const stats = await db
+    .select({
+      sport: logs.sport,
+      sum: sql`sum(${logs.distance})`.mapWith(Number),
+    })
+    .from(logs)
+    .where(
+      and(
+        eq(logs.userId, user_id),
+        between(logs.createdAt, start_date, limit_date)
+      )
+    )
+    .groupBy(logs.sport);
+
+  return Object.values(Sport).map((sport) => {
+    const sik = stats.find((s) => s.sport === sport) || {
+      sport,
+      sum: 0,
+    };
+
+    return { sport, sum: sik.sum.toFixed(1) };
+  });
+}
+
 async function getTop(
   guild: Guild,
   limit: number,
@@ -439,6 +475,20 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
       const my_stats = await getMyStats(user_id);
 
       let message = "Your personal stats are:\n\n";
+
+      my_stats.forEach((s) => (message += `${s.sport}: ${s.sum}km\n`));
+
+      ctx.reply(message);
+    }
+  });
+
+  bot.command("mydaily", async (ctx: Context) => {
+    if (ctx.message && ctx.message.chat.type == "private") {
+      const user_id = Number(ctx.message.from.id);
+
+      const my_stats = await getMyDaily(user_id);
+
+      let message = "Your personal stats for today are:\n\n";
 
       my_stats.forEach((s) => (message += `${s.sport}: ${s.sum}km\n`));
 
