@@ -520,7 +520,16 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
 
           const distance = z.number().min(1).parse(Number(text));
 
-          await insertLog(
+          if(log_event.sport !== Sport.activity && distance > 1000){
+            ctx.reply("You inserted a distance exceeding 1000 km. Are you sure you did not intend to record steps?");
+            Markup.inlineKeyboard([
+              Markup.button.callback(
+                `Record as ${log_event.sport}`,
+                `sportFix ${log_event.sport} ${log_event.distance}`
+              ),
+              Markup.button.callback(`Record as ${Sport.activity}`, `sportFix ${Sport.activity} ${log_event.distance}`),
+            ])
+          }else await insertLog(
             log_event.user_id,
             log_event.sport,
             log_event.sport === Sport.activity ? distance * 0.0007 : distance
@@ -611,7 +620,16 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
             ? "Type the number of steps that you have walked. These are converted to kilometers automatically"
             : "Type the number of kilometers using '.' as a separator, for example: 5.5"
         );
-      } else if (logType === "daily") {
+      } else if(logType === "sportFix"){
+        const distance = z.number().min(1).parse(Number(dataSplit[2]));
+        const sport = logData as Sport;
+
+        await insertLog(
+          user_id,
+          sport,
+          sport === Sport.activity ? distance * 0.0007 : distance
+        );
+      }else if (logType === "daily") {
         await handleDaily(ctx, Number(logData));
       }
     }
