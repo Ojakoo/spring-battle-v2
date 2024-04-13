@@ -449,10 +449,10 @@ if (process.env.BOT_TOKEN && process.env.ADMINS) {
       }
 
       kik_stats += ` - ${s.sport}: ${s.kik_sum.toFixed(1)} km${
-        s.kik_sum > s.sik_sum ? " 🏆" : ""
+        s.kik_sum > s.sik_sum ? " 🏆" : ` (-${(s.kik_sum - s.sik_sum).toFixed(1)} km`
       }\n`;
       sik_stats += ` - ${s.sport}: ${s.sik_sum.toFixed(1)} km${
-        s.kik_sum < s.sik_sum ? " 🏆" : ""
+        s.kik_sum < s.sik_sum ? " 🏆" : ` (-${(s.sik_sum - s.kik_sum).toFixed(1)} km`
       }\n`;
     });
 
